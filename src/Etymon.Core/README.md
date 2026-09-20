@@ -2,9 +2,11 @@
 
 The foundation of the [Etymon](https://github.com/CaelusMinds/Etymon) suite.
 
-**Depends on nothing but `FSharp.Core`.** It trims to roughly 47 KB when only the
-error model is used, so it can sit in a Blazor WebAssembly domain layer rather
-than stopping at a server boundary.
+**Depends on nothing but `FSharp.Core`.** It trims to roughly 85 KB when the
+refinement and error model are used, so it can sit in a Blazor WebAssembly
+domain layer rather than stopping at a server boundary. That figure is measured,
+not estimated: `eng/trim-size.sh` publishes a trimmed application that uses the
+package and prints what the assembly actually weighs.
 
 Take this package alone if you want smart constructors and a proper validation
 error model, and nothing else. In particular, the error vocabulary deliberately

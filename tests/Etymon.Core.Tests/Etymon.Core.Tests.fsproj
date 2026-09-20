@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Compile Include="ParseTests.fs" />
     <Compile Include="PathTests.fs" />
     <Compile Include="ConstraintTests.fs" />
     <Compile Include="ValidationTests.fs" />

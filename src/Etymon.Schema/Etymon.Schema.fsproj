@@ -5,7 +5,7 @@
     <PackageTags>$(PackageTags);codec;serialization;system-text-json;combinators</PackageTags>
     <!-- System.Text.Json ships in the shared framework for both target
          frameworks, so it is an in-box API here rather than a dependency. -->
-    <EtymonAllowedReferences>Etymon.Core;Etymon.Base</EtymonAllowedReferences>
+    <EtymonAllowedReferences>Etymon.Core</EtymonAllowedReferences>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
-    <ProjectReference Include="../Etymon.Base/Etymon.Base.fsproj" />
   </ItemGroup>
 
 </Project>

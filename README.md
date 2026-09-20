@@ -34,9 +34,9 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 
 | Package | What it owns | Depends on |
 | --- | --- | --- |
-| **Etymon.Core** | Paths, the constraint vocabulary, the accumulating error model, refined types, `Secret<'T>` | FSharp.Core only |
-| **Etymon.Base** | The .NET base library, returning `option` and `Result` instead of `null` and exceptions | FSharp.Core only |
-| **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document | Core, Base |
+| **Etymon.Core** | Paths, culture-explicit parsing, the constraint vocabulary, the accumulating error model, refined types, `Secret<'T>` | FSharp.Core only |
+| **Etymon.Base** | Strings, dictionaries, environment variables and file IO, returning `option` and `Result` instead of `null` and exceptions | Core |
+| **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document | Core |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
 | **Etymon.Schema.TypeScript** | TypeScript declarations from the same schemas. Types only | Core, Schema |
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
@@ -53,12 +53,14 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 
 - **"I want smart constructors and validation errors with field paths."**
   → `Etymon.Core`. Nothing else. It has no dependency beyond FSharp.Core and
-  trims to about 47 KB, so it can sit in a Blazor WebAssembly domain layer.
+  trims to about 85 KB, so it can sit in a Blazor WebAssembly domain layer.
 - **"I hand-write JSON codecs and want the error vocabulary without the magic."**
   → `Etymon.Core`. The error model deliberately does not depend on
   `Etymon.Schema`, so you can take `Path` / `ValidationError` /
   `ValidationErrors` and keep your codecs exactly as they are.
-- **"I want JSON and validation from one definition."** → `Etymon.Schema`.
+- **"I want JSON and validation from one definition."** → `Etymon.Schema`. It
+  takes `Etymon.Core` and nothing else, so a schema in a Blazor WebAssembly
+  payload carries no file or environment code it can never call.
 - **"…and an OpenAPI document that cannot drift from it."** → add `Etymon.Schema.OpenApi`.
 - **"…and property tests that only ever generate values my schema accepts."**
   → add `Etymon.Invariants.FsCheck`.

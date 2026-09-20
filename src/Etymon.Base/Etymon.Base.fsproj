@@ -1,19 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>The .NET base library, returning option and Result instead of null and exceptions. Culture-explicit parsing, null-safe strings, dictionary lookups, environment variables, and file IO with a typed error union naming the cases a caller can act on. Depends on nothing but FSharp.Core.</Description>
-    <PackageTags>$(PackageTags);base;parsing;io;result;option;null-safety</PackageTags>
-        <!-- Deliberately standalone: useful without any of the rest of the suite,
-         and nothing in the suite is allowed to make it heavier. -->
-    <EtymonAllowedReferences></EtymonAllowedReferences>
+    <Description>The .NET base library, returning option and Result instead of null and exceptions. Null-safe strings, dictionary lookups, environment variables, and file IO with a typed error union naming the cases a caller can act on. Culture-explicit parsing lives in Etymon.Core, so a schema does not drag file and environment access into a browser payload to get it.</Description>
+    <PackageTags>$(PackageTags);base;io;result;option;null-safety</PackageTags>
+    <!-- Takes Etymon.Core, which is FSharp.Core-only and tiny. Nothing else:
+         this package exists to be useful on its own, and the rest of the suite
+         is not allowed to make it heavier. -->
+    <EtymonAllowedReferences>Etymon.Core</EtymonAllowedReferences>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Parse.fs" />
     <Compile Include="Str.fs" />
     <Compile Include="Dict.fs" />
     <Compile Include="Env.fs" />
     <Compile Include="Files.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
   </ItemGroup>
 
 </Project>

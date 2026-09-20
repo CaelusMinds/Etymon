@@ -10,6 +10,7 @@ let main argv =
         (testList
             "Etymon.Core"
             [
+                ParseTests.tests
                 PathTests.tests
                 ConstraintTests.tests
                 ValidationTests.tests

@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>The foundation of the Etymon suite: paths into values, a constraint vocabulary expressed as data, an error model that accumulates, and constrained types with minimal boilerplate. Depends on nothing but FSharp.Core.</Description>
-    <PackageTags>$(PackageTags);validation;refined-types;result</PackageTags>
+    <Description>The foundation of the Etymon suite: paths into values, culture-explicit parsing, a constraint vocabulary expressed as data, an error model that accumulates, and constrained types with minimal boilerplate. Depends on nothing but FSharp.Core.</Description>
+    <PackageTags>$(PackageTags);validation;parsing;refined-types;result</PackageTags>
     <!-- Core is the floor of the suite: it references no sibling, ever. -->
     <EtymonAllowedReferences></EtymonAllowedReferences>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Parse.fs" />
     <Compile Include="Path.fs" />
     <Compile Include="Constraints.fs" />
     <Compile Include="Errors.fs" />
