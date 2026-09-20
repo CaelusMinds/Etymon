@@ -23,11 +23,10 @@ Generate.valid personSchema             // only ever generates ages in range
 Config.load personSchema sources        // "age: expected an integer (from environment)"
 ```
 
-> **Status: pre-release.** All thirteen code packages are built and tested —
-> **730 tests**, run on both net8.0 and net10.0, including end-to-end tests that
-> drive the generated client over real HTTP against both a Giraffe server and a
-> minimal-API one. Still to come: the `Etymon` meta-package, the samples and the
-> documentation site. Nothing is on NuGet yet.
+> **Status: pre-release.** All fourteen packages are built, and the thirteen with
+> code in them are tested — **730 tests**, run on both net8.0 and net10.0,
+> including end-to-end tests that drive the generated client over real HTTP
+> against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
 
 ## Packages
 
@@ -48,7 +47,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Api.Giraffe** | Serves an endpoint as a Giraffe `HttpHandler`, composing into the routing you already have | Api, Giraffe |
 | **Etymon.Api.AspNetCore** | Serves an endpoint on ASP.NET Core minimal-API routing, with no third-party web framework | Api, ASP.NET Core |
 | **Etymon.Api.Client** | Calls an endpoint over HTTP from the same declaration the server is built from. No server, no web framework | Api |
-| **Etymon** | Meta-package. No code; references everything except the ASP.NET adapter | — |
+| **Etymon** | Meta-package. No code; references every package that costs nothing but FSharp.Core | — |
 
 ## Which package do I need?
 
@@ -78,9 +77,12 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
   → `Etymon.Api` + `Etymon.Api.Client`, or `Etymon.Schema.TypeScript`. Neither
   needs a server at all.
 - **"I want all of it."** → `Etymon`, plus an adapter if you are writing a
-  server. The meta-package leaves the ASP.NET adapter out on purpose: a
-  framework reference is viral, and it would break every console app and library
-  that installed the meta-package.
+  server. The meta-package carries only what costs nothing but FSharp.Core, so
+  three packages are deliberately left out: `Etymon.Api.Giraffe` (Giraffe),
+  `Etymon.Api.AspNetCore` (ASP.NET Core) and `Etymon.Invariants.FsCheck`
+  (FsCheck). A convenience that quietly adds a web framework to a console
+  application is not one — and the two adapters are mutually exclusive anyway,
+  so no version of the meta-package could include the right one.
 
 ## How this compares
 
@@ -173,6 +175,15 @@ These are promises the build enforces, not just documents.
   error (`ETY0001`–`ETY0003`), not a code review note.
 
 ## Getting started
+
+The fastest way to see the point is to run the sample: one `Booking` schema, then
+the JSON codec, the validation errors, the OpenAPI document, the TypeScript
+declarations, the PostgreSQL table and the configuration reader — none of which
+restate a single rule.
+
+```bash
+dotnet run --project samples/Etymon.Sample.Derivations
+```
 
 Etymon is not on NuGet yet. To build it:
 

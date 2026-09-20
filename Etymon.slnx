@@ -16,6 +16,10 @@
     <Project Path="src/Etymon.Api.Giraffe/Etymon.Api.Giraffe.fsproj" />
     <Project Path="src/Etymon.Api/Etymon.Api.fsproj" />
     <Project Path="src/Etymon.Base/Etymon.Base.fsproj" />
+    <Project Path="src/Etymon/Etymon.fsproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Etymon.Sample.Derivations/Etymon.Sample.Derivations.fsproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Etymon.Config.Tests/Etymon.Config.Tests.fsproj" />

@@ -9,13 +9,36 @@ things you keep in sync by remembering to.
 
 ## Where to start
 
-- **[Etymon.Core](reference/etymon-core.html)** — the foundation. Constrained
-  types, an error model that accumulates and carries field paths, and the
-  constraint vocabulary every other package reads.
+The shortest honest introduction is
+[`samples/Etymon.Sample.Derivations`](https://github.com/CaelusMinds/Etymon/tree/main/samples/Etymon.Sample.Derivations):
+one `Booking` schema, then the JSON codec, the validation errors, the OpenAPI
+document, the TypeScript declarations, the PostgreSQL table and the
+configuration reader, none of which restate a single rule.
 
-The remaining packages are being built in phases; this page will grow as they
-land. See [the repository README](https://github.com/CaelusMinds/Etymon) for the
-full plan.
+```bash
+dotnet run --project samples/Etymon.Sample.Derivations
+```
+
+Then the [guides](guides.html), and the reference below.
+
+## The packages
+
+| Package | What it owns |
+| --- | --- |
+| `Etymon.Core` | Paths, the constraint vocabulary, the accumulating error model, refined types, `Secret<'T>` |
+| `Etymon.Base` | The .NET base library, returning `option` and `Result` instead of `null` and exceptions |
+| `Etymon.Schema` | `Schema<'T>` — one value describing encode, decode, validate and document |
+| `Etymon.Schema.OpenApi` | JSON Schema 2020-12 and OpenAPI 3.1 component schemas |
+| `Etymon.Schema.TypeScript` | TypeScript declarations. Types only |
+| `Etymon.Invariants` | Rules no single field can hold |
+| `Etymon.Invariants.FsCheck` | Generators that produce only values a schema accepts |
+| `Etymon.Config` | Configuration through a schema, every problem at once, with provenance |
+| `Etymon.Migrations` | A relational model, snapshot diffing and SQL. Carries no database driver |
+| `Etymon.Api` | HTTP endpoints described once. Performs no HTTP |
+| `Etymon.Api.Giraffe` | Serves an endpoint as a Giraffe `HttpHandler` |
+| `Etymon.Api.AspNetCore` | Serves an endpoint on minimal-API routing |
+| `Etymon.Api.Client` | Calls an endpoint. No server, no web framework |
+| `Etymon` | Meta-package: everything that costs nothing but `FSharp.Core` |
 
 ## The commitments
 

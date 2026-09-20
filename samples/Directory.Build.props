@@ -4,7 +4,13 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsAotCompatible>false</IsAotCompatible>
+    <!-- Samples target the floor rather than both frameworks. The point is to
+         prove the declared minimum compiles and runs, and a single target means
+         `dotnet run` needs no -f. -->
+    <TargetFrameworks>net8.0</TargetFrameworks>
   </PropertyGroup>
 
 </Project>
