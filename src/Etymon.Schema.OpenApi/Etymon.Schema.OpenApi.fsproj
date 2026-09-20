@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Generates JSON Schema 2020-12 and OpenAPI 3.1 component schemas from an Etymon.Schema, including constraints, formats, descriptions and examples. A pure function of the schema description, so a generated document cannot describe something different from what the codec does.</Description>
+    <PackageTags>$(PackageTags);json-schema;swagger;documentation</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="OpenApi.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>

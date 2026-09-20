@@ -25,7 +25,6 @@
   <ItemGroup>
     <PackageVersion Include="Expecto" Version="11.1.0" />
     <PackageVersion Include="Expecto.FsCheck" Version="11.1.0" />
-    <PackageVersion Include="Verify.Expecto" Version="33.1.1" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />

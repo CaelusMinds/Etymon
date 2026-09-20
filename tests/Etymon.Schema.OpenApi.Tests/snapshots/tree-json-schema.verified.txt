@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/Tree",
+  "$defs": {
+    "Tree": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Tree"
+          }
+        }
+      },
+      "required": [
+        "value",
+        "children"
+      ]
+    }
+  }
+}

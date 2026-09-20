@@ -22,11 +22,21 @@
     <EtymonEnforceLayers Condition="'$(EtymonEnforceLayers)' == ''">true</EtymonEnforceLayers>
   </PropertyGroup>
 
+  <!--
+    Snapshotted here, at import time, rather than read inside the target.
+    Directory.Build.targets is imported at the very end of the project file, so at
+    this point @(ProjectReference) is exactly what the project declared. By the
+    time a target runs, the SDK has added every transitive project reference too,
+    and the rule would fail a project for something it never asked for.
+  -->
+  <ItemGroup>
+    <EtymonDeclaredReference Include="@(ProjectReference->'%(Filename)')" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Packages that exist to test Etymon, and must never reach a consumer. -->
     <EtymonTestOnlyPackage Include="Expecto" />
     <EtymonTestOnlyPackage Include="Expecto.FsCheck" />
-    <EtymonTestOnlyPackage Include="Verify.Expecto" />
     <EtymonTestOnlyPackage Include="Npgsql" />
     <EtymonTestOnlyPackage Include="Microsoft.Data.Sqlite" />
     <EtymonTestOnlyPackage Include="Testcontainers.PostgreSql" />
@@ -39,7 +49,7 @@
     <!-- Exclude is exact-identity set subtraction, which is the one reliable way to
          intersect two item lists in MSBuild. A ~= B minus (B minus A). -->
     <ItemGroup>
-      <_EtymonReferenced Include="@(ProjectReference->'%(Filename)')" />
+      <_EtymonReferenced Include="@(EtymonDeclaredReference)" />
       <_EtymonAllowed Include="$(EtymonAllowedReferences)" />
       <_EtymonForbiddenProject Include="@(_EtymonReferenced)" Exclude="@(_EtymonAllowed)" />
 
@@ -48,7 +58,7 @@
     </ItemGroup>
 
     <!-- A shipping package must say what it may reference, even if the answer is nothing. -->
-    <Error Condition="'$(EtymonAllowedReferences)' == '' AND '@(ProjectReference)' != ''"
+    <Error Condition="'$(EtymonAllowedReferences)' == '' AND '@(EtymonDeclaredReference)' != ''"
            Code="ETY0001"
            Text="$(MSBuildProjectName) references other projects but declares no &lt;EtymonAllowedReferences&gt;. Add the property to $(MSBuildProjectFile), listing the siblings it strictly needs." />
 

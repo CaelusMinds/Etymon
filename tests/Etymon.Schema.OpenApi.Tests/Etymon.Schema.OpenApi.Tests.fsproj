@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Snapshots live beside the source, not beside the built assembly, so the
+       test tells the helper where the source tree is. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SnapshotDirectory</_Parameter1>
+      <_Parameter2>$(MSBuildProjectDirectory)/snapshots</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Shared/Snapshot.fs" Link="Snapshot.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="OpenApiTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
+  </ItemGroup>
+
+</Project>

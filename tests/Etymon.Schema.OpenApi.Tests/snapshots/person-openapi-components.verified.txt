@@ -1,0 +1,58 @@
+{
+  "Address": {
+    "type": "object",
+    "properties": {
+      "street": {
+        "type": "string",
+        "description": "Street address, including the number"
+      },
+      "zip": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 5,
+        "pattern": "^\\d+$"
+      }
+    },
+    "required": [
+      "street",
+      "zip"
+    ]
+  },
+  "Person": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "age": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 0,
+        "maximum": 130,
+        "description": "Age in whole years"
+      },
+      "email": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 254,
+        "format": "email"
+      },
+      "address": {
+        "$ref": "#/components/schemas/Address"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "name",
+      "age",
+      "address",
+      "tags"
+    ]
+  }
+}
