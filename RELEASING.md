@@ -19,10 +19,16 @@ that expires in an hour. Nothing to store, nothing to rotate, nothing to leak.
    - Environment: `nuget` — the workflow declares it, so the policy should
      require it
    - Scope the glob to `Etymon*`, allowing new packages and new versions.
-2. **Add the username.** Repository *Settings* → *Environments* → `nuget` → add
-   the secret `NUGET_USER`, set to your nuget.org **profile name**, not your
-   email address. This is the only stored value, and it is not a credential.
-   Add required reviewers on that environment if a push should need sign-off.
+2. **Add the username.** Add the secret `NUGET_USER` to the repository, or to
+   the `nuget` environment. Its value is the nuget.org profile name of the
+   account that **created** the policy — not the account that owns the
+   packages. Those differ here: the policy was created by `ssallaj-cm` and the
+   packages are owned by the `CaelusMinds` organization, so the value is
+   `ssallaj-cm`. Getting it the other way round fails the token exchange with
+   HTTP 401 and "No matching trust policy owned by user".
+
+   This is the only stored value, and it is not a credential. Add required
+   reviewers on the `nuget` environment if a push should need sign-off.
 3. **Reserve the prefix.** After the first push, email `account@nuget.org` with
    the owner display name and the prefixes `Etymon` and `Etymon.*`. Until it is
    reserved, anyone can publish `Etymon.Something` and it will look official.
