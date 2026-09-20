@@ -6,15 +6,31 @@ can require an approval.
 
 ## Once, before the first release
 
-1. **Create the API key.** On nuget.org, *API Keys* → *Create*, scoped to
-   **Push new packages and package versions**, with the glob pattern `Etymon*`.
-   A key scoped to one glob cannot be used to push anything else if it leaks.
-2. **Store it.** Repository *Settings* → *Environments* → `nuget` → add the
-   secret `NUGET_API_KEY`. Add required reviewers on that environment if a
-   second pair of eyes should sign off on a push.
-3. **Reserve the prefix.** After the first push, ask nuget.org to reserve the
-   `Etymon.` ID prefix for the CaelusMinds account. Without it, anyone can
-   publish `Etymon.Something` and it will look official.
+Publishing uses **Trusted Publishing**, so there is no long-lived API key: the
+workflow asks GitHub for a short-lived OIDC token, nuget.org validates it
+against a policy naming this repository and this workflow, and hands back a key
+that expires in an hour. Nothing to store, nothing to rotate, nothing to leak.
+
+1. **Register the policy.** On nuget.org: your username → *Trusted Publishing* →
+   add a policy.
+   - Repository Owner: `CaelusMinds`
+   - Repository: `Etymon`
+   - Workflow File: `release.yml` — the file name only, no path
+   - Environment: `nuget` — the workflow declares it, so the policy should
+     require it
+   - Scope the glob to `Etymon*`, allowing new packages and new versions.
+2. **Add the username.** Repository *Settings* → *Environments* → `nuget` → add
+   the secret `NUGET_USER`, set to your nuget.org **profile name**, not your
+   email address. This is the only stored value, and it is not a credential.
+   Add required reviewers on that environment if a push should need sign-off.
+3. **Reserve the prefix.** After the first push, email `account@nuget.org` with
+   the owner display name and the prefixes `Etymon` and `Etymon.*`. Until it is
+   reserved, anyone can publish `Etymon.Something` and it will look official.
+
+A policy on a private repository starts *temporarily active* for seven days
+until a first publish locks it to the repository and owner IDs. This repository
+is public, so that does not apply — but if the policy ever shows as pending,
+that is why.
 
 ## Each release
 
