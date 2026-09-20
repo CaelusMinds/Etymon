@@ -86,8 +86,12 @@ jobs:
 
       # Trusted Publishing. The key is requested immediately before the push
       # because it expires in an hour, and each OIDC token buys exactly one key.
+      #
+      # Deliberately not gated on the tag: a dry run that skips this proves the
+      # build and proves nothing about publishing, which is the half most likely
+      # to be misconfigured. Obtaining a key has no outward effect -- it expires
+      # unused -- so the rehearsal exercises everything except the push itself.
       - name: Exchange an OIDC token for a short-lived NuGet key
-        if: startsWith(github.ref, 'refs/tags/v') && inputs.dry-run != true
         uses: NuGet/login@v1
         id: nuget-login
         with:

@@ -54,8 +54,11 @@ git push origin v0.1.0
 ```
 
 To rehearse without publishing, run the **Release** workflow by hand with
-*dry-run* left checked. It builds, tests and packs, and uploads the `.nupkg`
-files as an artifact without pushing.
+*dry-run* left checked. It builds, tests, packs, uploads the `.nupkg` files as
+an artifact, and exchanges an OIDC token for a real short-lived NuGet key —
+everything except the push. The key exchange is included on purpose: it is the
+part most likely to be misconfigured, and a rehearsal that skips it proves only
+that the code compiles. The key expires unused within the hour.
 
 ## What a version number costs
 
