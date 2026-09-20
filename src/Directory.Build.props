@@ -1,0 +1,38 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 1182 unused variable, 3390 malformed XML doc comment. Both are off by
+         default in F#; both catch real mistakes in a library that ships docs. -->
+    <OtherFlags>$(OtherFlags) --warnon:1182,3390</OtherFlags>
+  </PropertyGroup>
+
+  <!-- Every shipping assembly declares itself trimmable. Etymon.Core in particular
+       has to be able to travel all the way down into a Blazor WebAssembly payload,
+       where a referenced assembly is bytes the browser downloads. Packages that
+       genuinely need reflection opt out individually and say why. -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Caelus Minds</Authors>
+    <Company>Caelus Minds</Company>
+    <Product>Etymon</Product>
+    <Copyright>Copyright (c) 2026 Caelus Minds</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>fsharp;schema;codec;validation;json;openapi;etymon</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../assets/icon.png" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

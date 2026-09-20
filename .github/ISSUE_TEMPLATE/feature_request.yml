@@ -1,0 +1,49 @@
+name: Feature request
+description: Something Etymon should be able to do and cannot.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Etymon is early, so API feedback is genuinely welcome. It also has firm
+        commitments — errors accumulate, reflection stays optional, constraints
+        stay data, ambiguity is an error rather than a guess — and a proposal
+        that fits them is much easier to accept.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does Etymon stop you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What the API might look like
+      description: A sketch is fine. Signatures and a usage example help most.
+      render: fsharp
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you are doing instead today
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package would own this?
+      options:
+        - Etymon.Core
+        - Etymon.Std
+        - Etymon.Schema
+        - Etymon.Schema.OpenApi
+        - Etymon.Schema.TypeScript
+        - Etymon.Contracts
+        - Etymon.Contracts.FsCheck
+        - Etymon.Config
+        - Etymon.Migrations
+        - Etymon.Api
+        - A new package
+        - Not sure

@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      test-dependencies:
+        patterns: ["Expecto*", "Verify*", "FsCheck", "Testcontainers*"]
+    ignore:
+      # FSharp.Core is the floor we ask consumers to accept, not a dependency to
+      # keep current. Raising it is a deliberate decision with a CHANGELOG entry.
+      - dependency-name: "FSharp.Core"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

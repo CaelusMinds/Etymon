@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Compile Include="PathTests.fs" />
+    <Compile Include="ConstraintTests.fs" />
+    <Compile Include="ValidationTests.fs" />
+    <Compile Include="CheckTests.fs" />
+    <Compile Include="SecretTests.fs" />
+    <Compile Include="RefineTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Core/Etymon.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/eng/">
+    <Project Path="eng/TrimGate/TrimGate.fsproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Etymon.Core/Etymon.Core.fsproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Etymon.Core.Tests/Etymon.Core.Tests.fsproj" />
+  </Folder>
+</Solution>

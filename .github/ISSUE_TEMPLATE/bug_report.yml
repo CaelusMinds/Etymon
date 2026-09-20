@@ -1,0 +1,58 @@
+name: Bug report
+description: Something behaves differently from what its documentation says.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The most useful bug report is a failing snippet,
+        so lead with that if you can.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - Etymon.Core
+        - Etymon.Std
+        - Etymon.Schema
+        - Etymon.Schema.OpenApi
+        - Etymon.Schema.TypeScript
+        - Etymon.Contracts
+        - Etymon.Contracts.FsCheck
+        - Etymon.Config
+        - Etymon.Migrations
+        - Etymon.Api
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The smallest F# that shows the problem.
+      render: fsharp
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: .NET SDK and OS
+      placeholder: "10.0.400, Windows 11"

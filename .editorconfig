@@ -1,0 +1,29 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.{csproj,fsproj,props,targets,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# ---- Fantomas ----
+# Anything not listed here uses the Fantomas default. Keep this list short:
+# every override is a rule contributors have to learn.
+[*.{fs,fsi,fsx}]
+max_line_length = 120
+fsharp_multiline_bracket_style = aligned
+fsharp_keep_max_number_of_blank_lines = 1
+fsharp_align_function_signature_to_indentation = true
+fsharp_multi_line_lambda_closing_newline = true
+fsharp_experimental_keep_indent_in_branch = true

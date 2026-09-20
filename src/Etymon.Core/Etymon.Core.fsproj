@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The foundation of the Etymon suite: paths into values, a constraint vocabulary expressed as data, an error model that accumulates, and constrained types with minimal boilerplate. Depends on nothing but FSharp.Core.</Description>
+    <PackageTags>$(PackageTags);validation;refined-types;result</PackageTags>
+    <!-- Core is the floor of the suite: it references no sibling, ever. -->
+    <EtymonAllowedReferences></EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Path.fs" />
+    <Compile Include="Constraints.fs" />
+    <Compile Include="Errors.fs" />
+    <Compile Include="Validation.fs" />
+    <Compile Include="Check.fs" />
+    <Compile Include="Secret.fs" />
+    <Compile Include="Refine.fs" />
+  </ItemGroup>
+
+</Project>

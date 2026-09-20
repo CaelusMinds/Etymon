@@ -1,0 +1,26 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+
+# Test output
+TestResults/
+*.trx
+coverage*.xml
+*.received.*
+
+# Tooling
+.fake/
+.ionide/
+.fsdocs/
+tmp/
+output/
+
+# OS
+.DS_Store
+Thumbs.db

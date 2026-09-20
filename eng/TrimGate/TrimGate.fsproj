@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Not a test: a canary. Etymon.Core is meant to be small enough to travel into
+    a Blazor WebAssembly domain layer, where every referenced assembly is bytes
+    the browser downloads. This publishes trimmed and fails on trim warnings, so
+    that the day somebody adds reflection to Core, CI says so rather than a
+    consumer discovering it.
+
+    It references Etymon.Core and nothing else on purpose.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <SelfContained>true</SelfContained>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Core/Etymon.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

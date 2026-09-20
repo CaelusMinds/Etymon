@@ -1,0 +1,17 @@
+* text=auto
+
+# Verify snapshots must be byte-identical across OSes.
+*.verified.txt   text eol=lf
+*.verified.json  text eol=lf
+*.verified.sql   text eol=lf
+*.verified.ts    text eol=lf
+*.received.*     binary linguist-generated=true
+
+*.fs     text eol=lf diff=fsharp
+*.fsi    text eol=lf diff=fsharp
+*.fsx    text eol=lf diff=fsharp
+*.fsproj text eol=lf
+*.props  text eol=lf
+*.targets text eol=lf
+*.sh     text eol=lf
+*.cmd    text eol=crlf

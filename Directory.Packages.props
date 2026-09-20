@@ -1,0 +1,34 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- The FSharp.Core floor we ask consumers to accept. We compile against
+       exactly this version so we cannot accidentally use a newer API than
+       our own declared minimum. Raising it is a breaking change for
+       somebody, so it moves only with a stated reason in CHANGELOG.md. -->
+  <ItemGroup>
+    <PackageVersion Include="FSharp.Core" Version="8.0.100" />
+  </ItemGroup>
+
+  <!-- Runtime dependencies of shipping packages. At most one per package.
+       System.Text.Json is deliberately absent: it ships in the shared
+       framework for both net8.0 and net10.0, so Etymon.Schema takes it as
+       an in-box API rather than a NuGet dependency. -->
+  <ItemGroup>
+    <PackageVersion Include="FsCheck" Version="3.4.0" />
+  </ItemGroup>
+
+  <!-- Test-only. Never referenced by a shipping package. -->
+  <ItemGroup>
+    <PackageVersion Include="Expecto" Version="11.1.0" />
+    <PackageVersion Include="Expecto.FsCheck" Version="11.1.0" />
+    <PackageVersion Include="Verify.Expecto" Version="33.1.1" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+  </ItemGroup>
+
+</Project>

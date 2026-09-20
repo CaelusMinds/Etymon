@@ -1,0 +1,70 @@
+name: Release
+
+# Publishing is never automatic. A release happens when a maintainer either
+# pushes a v* tag or runs this workflow by hand, and the push to NuGet sits
+# behind a GitHub environment so it can require an approval.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build and pack, but do not push to NuGet"
+        type: boolean
+        default: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Check the tag matches the version in Directory.Build.props
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          declared=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props)
+          if [ "$tag" != "$declared" ]; then
+            echo "::error::Tag v$tag does not match VersionPrefix $declared in Directory.Build.props"
+            exit 1
+          fi
+          echo "Releasing $declared"
+
+      - run: dotnet build -c Release
+
+      - name: Test (net8.0)
+        run: dotnet run --project tests/Etymon.Core.Tests -c Release -f net8.0 --no-build
+
+      - name: Test (net10.0)
+        run: dotnet run --project tests/Etymon.Core.Tests -c Release -f net10.0 --no-build
+
+      - run: dotnet pack -c Release --no-build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages/*.nupkg
+
+      - name: Push to NuGet
+        if: startsWith(github.ref, 'refs/tags/v') && inputs.dry-run != true
+        run: >
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --skip-duplicate

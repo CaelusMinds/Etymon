@@ -1,0 +1,65 @@
+<Project>
+
+  <!--
+    The suite's dependency rules, enforced by the build rather than documented.
+
+    Etymon's whole pitch rests on a package graph a consumer can reason about:
+    Core takes nothing but FSharp.Core, every package takes at most one external
+    runtime dependency, and no package references a sibling it does not strictly
+    need. Those are the kind of rules that hold for a year and then quietly stop
+    holding, because the reference that breaks them is always individually
+    reasonable. So they are build errors.
+
+    Each shipping project declares what it is allowed to reference:
+
+      <EtymonAllowedReferences>Etymon.Core;Etymon.Schema</EtymonAllowedReferences>
+
+    An empty value means "nothing", which is what Etymon.Core declares. Set
+    EtymonEnforceLayers=false to get a build out of a broken tree while working.
+  -->
+
+  <PropertyGroup>
+    <EtymonEnforceLayers Condition="'$(EtymonEnforceLayers)' == ''">true</EtymonEnforceLayers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packages that exist to test Etymon, and must never reach a consumer. -->
+    <EtymonTestOnlyPackage Include="Expecto" />
+    <EtymonTestOnlyPackage Include="Expecto.FsCheck" />
+    <EtymonTestOnlyPackage Include="Verify.Expecto" />
+    <EtymonTestOnlyPackage Include="Npgsql" />
+    <EtymonTestOnlyPackage Include="Microsoft.Data.Sqlite" />
+    <EtymonTestOnlyPackage Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <Target Name="EtymonEnforceDependencyRules"
+          BeforeTargets="Build;Pack"
+          Condition="'$(EtymonEnforceLayers)' == 'true' AND '$(IsPackable)' == 'true'">
+
+    <!-- Exclude is exact-identity set subtraction, which is the one reliable way to
+         intersect two item lists in MSBuild. A ~= B minus (B minus A). -->
+    <ItemGroup>
+      <_EtymonReferenced Include="@(ProjectReference->'%(Filename)')" />
+      <_EtymonAllowed Include="$(EtymonAllowedReferences)" />
+      <_EtymonForbiddenProject Include="@(_EtymonReferenced)" Exclude="@(_EtymonAllowed)" />
+
+      <_EtymonPermittedPackage Include="@(PackageReference)" Exclude="@(EtymonTestOnlyPackage)" />
+      <_EtymonLeakedTestPackage Include="@(PackageReference)" Exclude="@(_EtymonPermittedPackage)" />
+    </ItemGroup>
+
+    <!-- A shipping package must say what it may reference, even if the answer is nothing. -->
+    <Error Condition="'$(EtymonAllowedReferences)' == '' AND '@(ProjectReference)' != ''"
+           Code="ETY0001"
+           Text="$(MSBuildProjectName) references other projects but declares no &lt;EtymonAllowedReferences&gt;. Add the property to $(MSBuildProjectFile), listing the siblings it strictly needs." />
+
+    <Error Condition="'@(_EtymonForbiddenProject)' != ''"
+           Code="ETY0002"
+           Text="$(MSBuildProjectName) references @(_EtymonForbiddenProject, ', '), which is not in its declared &lt;EtymonAllowedReferences&gt; ('$(EtymonAllowedReferences)'). Either the reference is wrong, or the rule has changed and the declaration should say so." />
+
+    <Error Condition="'@(_EtymonLeakedTestPackage)' != ''"
+           Code="ETY0003"
+           Text="$(MSBuildProjectName) is a shipping package but references @(_EtymonLeakedTestPackage, ', '), which is test-only. A consumer would inherit it." />
+
+  </Target>
+
+</Project>

@@ -1,0 +1,29 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Test assemblies are not shipped, so the trimming promise does not apply. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <!-- Tests deliberately construct odd values and partial applications. -->
+    <NoWarn>$(NoWarn);FS0064;FS3370</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Tests run through Expecto's own runner (`dotnet run`), not `dotnet test`.
+    YoloDev.Expecto.TestSdk, which is what bridges Expecto to VSTest, pins Expecto
+    to 9.x or 10.x; taking it would mean going back a major version on Expecto and
+    two on FsCheck. Expecto's runner gives filtering, parallelism and JUnit output
+    for CI, so the only thing given up is IDE Test Explorer integration.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Expecto" />
+    <PackageReference Include="Expecto.FsCheck" />
+    <PackageReference Include="FsCheck" />
+  </ItemGroup>
+
+</Project>
