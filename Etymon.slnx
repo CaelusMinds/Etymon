@@ -4,10 +4,12 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Etymon.Core/Etymon.Core.fsproj" />
+    <Project Path="src/Etymon.Schema/Etymon.Schema.fsproj" />
     <Project Path="src/Etymon.Std/Etymon.Std.fsproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Etymon.Core.Tests/Etymon.Core.Tests.fsproj" />
+    <Project Path="tests/Etymon.Schema.Tests/Etymon.Schema.Tests.fsproj" />
     <Project Path="tests/Etymon.Std.Tests/Etymon.Std.Tests.fsproj" />
   </Folder>
 </Solution>

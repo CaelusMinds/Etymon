@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>A combinator-based schema type for F#: one value that describes how a type is encoded, decoded, validated and documented. JSON via System.Text.Json, decode errors that accumulate and carry field paths, and an untyped description that OpenAPI, SQL and test generators all read.</Description>
+    <PackageTags>$(PackageTags);codec;serialization;system-text-json;combinators</PackageTags>
+    <!-- System.Text.Json ships in the shared framework for both target
+         frameworks, so it is an in-box API here rather than a dependency. -->
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Std</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="SchemaInfo.fs" />
+    <Compile Include="Codec.fs" />
+    <Compile Include="Schema.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Std/Etymon.Std.fsproj" />
+  </ItemGroup>
+
+</Project>
