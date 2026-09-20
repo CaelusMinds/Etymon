@@ -64,9 +64,11 @@ jobs:
       - name: Test
         shell: bash
         run: |
+          # The same version properties as the build, or --no-build evaluates a
+          # different property set than the one that produced the output.
           for project in tests/*.Tests; do
             for tfm in net8.0 net10.0; do
-              dotnet run --project "$project" -c Release -f "$tfm" --no-build
+              dotnet run --project "$project" -c Release -f "$tfm" --no-build ${VERSION_ARG}
             done
           done
 
