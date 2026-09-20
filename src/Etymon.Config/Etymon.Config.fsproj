@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Configuration loaded through an Etymon schema, from environment variables, JSON files or a source of your own. Reports every missing or invalid setting at once, each with what was expected and which source supplied it. Sensitive settings are redacted wherever Etymon prints them.</Description>
+    <PackageTags>$(PackageTags);configuration;settings;environment;appsettings</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Base;Etymon.Schema</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ConfigSource.fs" />
+    <Compile Include="Config.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Base/Etymon.Base.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>

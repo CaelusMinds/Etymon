@@ -44,7 +44,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Schema.TypeScript** | TypeScript type declarations from the same schemas | Core, Schema |
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
 | **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
-| **Etymon.Config** | Configuration from environment and files, decoded through a schema, reporting every problem at startup | Core, Schema |
+| **Etymon.Config** | Configuration through a schema, reporting every problem at once with what was expected and which source supplied it | Core, Base, Schema |
 | **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing, and SQL generation | Core, Schema, Invariants |
 | **Etymon.Api** | HTTP endpoints defined once: routes, requests, responses, typed errors | Core, Schema, Schema.OpenApi |
 | **Etymon.Api.AspNetCore** | The server adapter | Api |
