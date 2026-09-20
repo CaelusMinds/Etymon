@@ -127,11 +127,29 @@ let tests =
                         [ "P3D"; "PT4H"; "P3DT4H"; "P1Y2M3DT4H5M6S"; "PT0.5S"; "P2W"; "-P1D" ]
                         [ ""; "P"; "3D"; "PT"; "P3X"; "PT1H1Y"; "P1D2D"; "PT0.5H"; "PTS" ]
 
+                    // "/relative" and "C:\\x" are the platform-dependent ones:
+                    // Uri.TryCreate(UriKind.Absolute) accepts a rooted path as an
+                    // implicit file: URI on whichever platform owns that shape.
+                    // Both must be rejected everywhere, or the same payload
+                    // validates on one machine and not another.
                     table
                         "uri"
                         (Check.format Format.Uri)
-                        [ "https://example.com"; "https://example.com/a?b=c" ]
-                        [ ""; "/relative"; "not a uri" ]
+                        [
+                            "https://example.com"
+                            "https://example.com/a?b=c"
+                            "file:///tmp/x"
+                            "urn:isbn:0451450523"
+                            "mailto:ada@example.com"
+                        ]
+                        [
+                            ""
+                            "/relative"
+                            "not a uri"
+                            "C:\\Windows"
+                            "//example.com/a"
+                            "://missing-scheme"
+                        ]
 
                     table
                         "hostname"

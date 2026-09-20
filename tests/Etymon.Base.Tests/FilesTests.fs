@@ -213,6 +213,13 @@ let tests =
                     test "a file held exclusively reports InUse" {
                         // The one failure mode that is genuinely about concurrency, and
                         // the one a caller most wants to retry rather than give up on.
+                        //
+                        // It must be InUse on every platform, not InUse on the one the
+                        // library was developed on. The underlying code differs -- a
+                        // Win32 sharing violation against a Unix errno -- and the first
+                        // version of this test accepted anything that failed, so it
+                        // passed on Windows while Linux quietly reported IoFailure and
+                        // no retry loop would ever have fired there.
                         withTempDir (fun dir ->
                             let path = Path.Combine(dir, "locked.txt")
                             File.tryWriteAllText path "x" |> ignore
@@ -220,9 +227,9 @@ let tests =
                             use _held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None)
 
                             match File.tryReadAllText path with
-                            | Error(FileError.InUse _) -> ()
-                            | Error(FileError.AccessDenied _) -> () // some platforms report it this way
-                            | other -> failtestf "expected InUse or AccessDenied, got %A" other
+                            | Error(FileError.InUse reported) ->
+                                Expect.equal reported path "the error names the file it was about"
+                            | other -> failtestf "expected InUse, got %A" other
                         )
                     }
                 ]

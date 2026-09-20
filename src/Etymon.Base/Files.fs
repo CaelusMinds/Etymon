@@ -21,7 +21,13 @@ type FileError =
     | DirectoryNotFound of path: string
     /// The operating system refused: permissions, or a read-only file.
     | AccessDenied of path: string
-    /// Another process has the file open in a conflicting mode.
+    /// <summary>Another process has the file open in a conflicting mode.</summary>
+    /// <remarks>
+    /// Reported the same way on every platform. Windows enforces this in the
+    /// kernel; on Unix .NET emulates it with an advisory lock, which holds
+    /// against other .NET processes but not against a process that ignores the
+    /// advisory lock entirely.
+    /// </remarks>
     | InUse of path: string
     /// The path is malformed, or longer than the platform allows.
     | InvalidPath of path: string
@@ -80,11 +86,27 @@ module internal FileErrorMapping =
         | :? ArgumentException -> FileError.InvalidPath path
         | :? NotSupportedException -> FileError.InvalidPath path
         | :? IOException as io ->
-            // Win32 sharing violation (32) and lock violation (33) both mean
-            // somebody else has it; there is no dedicated exception type.
-            let code = io.HResult &&& 0xFFFF
+            // There is no dedicated exception type for "somebody else has it",
+            // so this goes by the code -- and the code is different on every
+            // platform, which is how this went unnoticed. Windows reports a
+            // Win32 sharing (32) or lock (33) violation in the low word of an
+            // HRESULT. Unix has no mandatory locking, so .NET emulates
+            // FileShare with flock and reports the raw errno for EAGAIN, whose
+            // value is 11 on Linux and 35 on macOS and the BSDs.
+            //
+            // Getting this wrong does not throw: the failure is silently
+            // reclassified as IoFailure, and a caller that retries on InUse
+            // stops retrying on the platforms it was not developed on.
+            let sharingViolation =
+                if OperatingSystem.IsWindows() then
+                    let code = io.HResult &&& 0xFFFF
+                    code = 32 || code = 33
+                elif OperatingSystem.IsMacOS() then
+                    io.HResult = 35
+                else
+                    io.HResult = 11
 
-            if code = 32 || code = 33 then
+            if sharingViolation then
                 FileError.InUse path
             else
                 FileError.IoFailure(path, io.Message)

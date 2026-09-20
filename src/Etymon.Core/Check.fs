@@ -187,8 +187,31 @@ module Check =
 
             ok && components > 0 && (not inTime || timeComponents > 0)
 
+    /// <summary>
+    /// An absolute URI: a scheme, then the rest.
+    /// </summary>
+    /// <remarks>
+    /// <c>Uri.TryCreate</c> with <c>UriKind.Absolute</c> is not enough on its
+    /// own, because on Unix it accepts a rooted file path — <c>/relative</c>
+    /// parses as an implicit <c>file:</c> URI, and the same string is rejected
+    /// on Windows. A validator whose answer depends on the operating system is
+    /// worse than no validator, so the scheme is required explicitly and the
+    /// implicit-file case is excluded.
+    /// </remarks>
     let private isAbsoluteUri (value: string) =
-        Uri.TryCreate(value, UriKind.Absolute) |> fst
+        match Uri.TryCreate(value, UriKind.Absolute) with
+        | true, uri ->
+            // The scheme the parser settled on must be the scheme the string
+            // actually names. That is what separates a URI from a file path the
+            // parser was willing to adopt: "/relative" names none and becomes
+            // file on Unix, and "C:\Windows" names "C" -- a syntactically legal
+            // scheme -- but becomes file on Windows. Both are rejected, so the
+            // same value validates the same way on every machine.
+            let delimiter = value.IndexOf ':'
+
+            delimiter > 0
+            && String.Equals(value.Substring(0, delimiter), uri.Scheme, StringComparison.OrdinalIgnoreCase)
+        | false, _ -> false
 
     let private isUriReference (value: string) =
         Uri.TryCreate(value, UriKind.RelativeOrAbsolute) |> fst
