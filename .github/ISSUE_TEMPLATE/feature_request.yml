@@ -36,7 +36,7 @@ body:
       label: Which package would own this?
       options:
         - Etymon.Core
-        - Etymon.Std
+        - Etymon.Base
         - Etymon.Schema
         - Etymon.Schema.OpenApi
         - Etymon.Schema.TypeScript

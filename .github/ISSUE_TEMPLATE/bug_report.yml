@@ -14,7 +14,7 @@ body:
       label: Package
       options:
         - Etymon.Core
-        - Etymon.Std
+        - Etymon.Base
         - Etymon.Schema
         - Etymon.Schema.OpenApi
         - Etymon.Schema.TypeScript

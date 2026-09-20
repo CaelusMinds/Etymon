@@ -277,7 +277,7 @@ module Dir =
 
     /// <summary>The immediate subdirectories, sorted.</summary>
     /// <example><code lang="fsharp">
-    /// Dir.tryListDirectories "src" // Ok [ "src\\Etymon.Core"; "src\\Etymon.Std" ]
+    /// Dir.tryListDirectories "src" // Ok [ "src\\Etymon.Core"; "src\\Etymon.Base" ]
     /// </code></example>
     let tryListDirectories (path: string) =
         attempt path (fun () -> Directory.GetDirectories path |> Array.sort |> List.ofArray)

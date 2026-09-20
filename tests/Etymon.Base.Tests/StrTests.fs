@@ -1,4 +1,4 @@
-module Etymon.Std.Tests.StrTests
+module Etymon.Base.Tests.StrTests
 
 open Expecto
 open Etymon

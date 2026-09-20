@@ -3,7 +3,7 @@
 Define the type once. Derive everything else.
 
 Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
-`Etymon.Core` and `Etymon.Std`, and on no NuGet package at all beyond
+`Etymon.Core` and `Etymon.Base`, and on no NuGet package at all beyond
 `FSharp.Core` — `System.Text.Json` ships in the shared framework for both target
 frameworks, so it is an in-box API here rather than a dependency you inherit.
 

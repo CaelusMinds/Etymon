@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The .NET base library, returning option and Result instead of null and exceptions. Culture-explicit parsing, null-safe strings, dictionary lookups, environment variables, and file IO with a typed error union naming the cases a caller can act on. Depends on nothing but FSharp.Core.</Description>
+    <PackageTags>$(PackageTags);base;parsing;io;result;option;null-safety</PackageTags>
+        <!-- Deliberately standalone: useful without any of the rest of the suite,
+         and nothing in the suite is allowed to make it heavier. -->
+    <EtymonAllowedReferences></EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Parse.fs" />
+    <Compile Include="Str.fs" />
+    <Compile Include="Dict.fs" />
+    <Compile Include="Env.fs" />
+    <Compile Include="Files.fs" />
+  </ItemGroup>
+
+</Project>

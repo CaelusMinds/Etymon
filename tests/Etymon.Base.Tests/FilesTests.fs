@@ -1,4 +1,4 @@
-module Etymon.Std.Tests.FilesTests
+module Etymon.Base.Tests.FilesTests
 
 open System
 open System.IO

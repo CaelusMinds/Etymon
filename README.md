@@ -25,9 +25,10 @@ personSchema |> Arb.valid                     // an FsCheck generator of valid v
 personSchema |> Migrations.tableOf options    // a relational table model
 ```
 
-> **Status: pre-release.** Phase 1 of 9 is complete — `Etymon.Core` is built and
-> tested. Everything else in the table below is planned, not shipped. Nothing is
-> on NuGet yet.
+> **Status: pre-release.** Four of nine phases are complete — `Etymon.Core`,
+> `Etymon.Base`, `Etymon.Schema` and `Etymon.Schema.OpenApi` are built and tested
+> (548 tests, net8.0 and net10.0). Everything else in the table below is
+> planned, not shipped. Nothing is on NuGet yet.
 
 ## Packages
 
@@ -36,7 +37,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | Package | What it owns | Depends on |
 | --- | --- | --- |
 | **Etymon.Core** | Paths, the constraint vocabulary, the accumulating error model, refined types, `Secret<'T>` | FSharp.Core only |
-| **Etymon.Std** | An F#-idiomatic layer over the base library: parsing with explicit culture, dictionaries, environment, file IO with typed errors | FSharp.Core only |
+| **Etymon.Base** | The .NET base library, returning `option` and `Result` instead of `null` and exceptions | FSharp.Core only |
 | **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document. JSON via `System.Text.Json` | Core |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
 | **Etymon.Schema.TypeScript** | TypeScript type declarations from the same schemas | Core, Schema |

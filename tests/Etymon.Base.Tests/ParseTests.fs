@@ -1,4 +1,4 @@
-module Etymon.Std.Tests.ParseTests
+module Etymon.Base.Tests.ParseTests
 
 open System
 open System.Globalization

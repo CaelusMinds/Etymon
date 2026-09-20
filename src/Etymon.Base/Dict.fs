@@ -6,7 +6,7 @@ open System.Collections.Generic
 /// Lookups into .NET dictionaries that return <c>option</c>.
 /// </summary>
 /// <remarks>
-/// F# gives <c>Map</c> a <c>tryFind</c> and gives the BCL dictionaries nothing, so
+/// F# gives <c>Map</c> a <c>tryFind</c> and gives the base library dictionaries nothing, so
 /// every codebase grows its own <c>TryGetValue</c> wrapper. These are those,
 /// written once, over the interfaces rather than the concrete types so that they
 /// work on a <c>Dictionary</c>, a <c>ConcurrentDictionary</c>, a

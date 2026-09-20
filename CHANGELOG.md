@@ -13,7 +13,7 @@ be reconsidered at 1.0.
 
 ### Added
 
-- **Etymon.Std** — an F#-idiomatic layer over the base library, depending on
+- **Etymon.Base** — an F#-idiomatic layer over the base library, depending on
   nothing but `FSharp.Core` and on no other Etymon package.
   - `Parse`: culture-explicit parsing returning `option`. The plain names use the
     invariant culture and disallow digit grouping, because `NumberStyles.Number`

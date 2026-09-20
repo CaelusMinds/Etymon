@@ -1,4 +1,4 @@
-module Etymon.Std.Tests.DictEnvTests
+module Etymon.Base.Tests.DictEnvTests
 
 open System
 open System.Collections.Generic

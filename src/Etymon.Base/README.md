@@ -1,14 +1,18 @@
-# Etymon.Std
+# Etymon.Base
 
-An F#-idiomatic layer over the base-library APIs you reach for constantly, part of
-the [Etymon](https://github.com/CaelusMinds/Etymon) suite.
+**The .NET base library, returning `option` and `Result` instead of `null`
+and exceptions.**
 
-**Depends on nothing but `FSharp.Core`**, including no other Etymon package. Take
+Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite, but it
+**depends on nothing but `FSharp.Core`** — not even another Etymon package. Take
 it on its own if that is all you want.
 
-The rule throughout: something that is absent returns `option`, something that can
-fail for a reason worth branching on returns `Result`, and neither returns `null`
-or throws.
+The base library signals failure three different ways: `null`, a thrown
+exception, and a `bool` with an `out` parameter. None of them are visible in a type, so none of
+them are things the compiler can remind you about. Every function here replaces
+one of those with a value: something absent is `option`, something that failed
+for a reason worth branching on is `Result`, and nothing throws for an outcome
+that was always going to happen sometimes.
 
 ## Parsing, with the culture spelled out
 

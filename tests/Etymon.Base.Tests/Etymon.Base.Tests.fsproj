@@ -9,7 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Etymon.Std/Etymon.Std.fsproj" />
+    <ProjectReference Include="../../src/Etymon.Base/Etymon.Base.fsproj" />
   </ItemGroup>
 
 </Project>
