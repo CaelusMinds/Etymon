@@ -19,10 +19,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Authors>Caelus Minds</Authors>
-    <Company>Caelus Minds</Company>
+    <Authors>CaelusMinds</Authors>
+    <Company>CaelusMinds LLC</Company>
     <Product>Etymon</Product>
-    <Copyright>Copyright (c) 2026 Caelus Minds</Copyright>
+    <Copyright>Copyright (c) 2026 CaelusMinds LLC</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
