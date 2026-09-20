@@ -25,10 +25,11 @@ personSchema |> Arb.valid                     // an FsCheck generator of valid v
 personSchema |> Migrations.tableOf options    // a relational table model
 ```
 
-> **Status: pre-release.** Four of nine phases are complete — `Etymon.Core`,
-> `Etymon.Base`, `Etymon.Schema` and `Etymon.Schema.OpenApi` are built and tested
-> (548 tests, net8.0 and net10.0). Everything else in the table below is
-> planned, not shipped. Nothing is on NuGet yet.
+> **Status: pre-release.** Five of nine phases are complete: `Etymon.Core`,
+> `Etymon.Base`, `Etymon.Schema`, `Etymon.Schema.OpenApi`, `Etymon.Invariants`
+> and `Etymon.Invariants.FsCheck` are built and tested (594 tests, net8.0 and
+> net10.0). Everything else in the table below is planned, not shipped. Nothing
+> is on NuGet yet.
 
 ## Packages
 
@@ -41,10 +42,10 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document. JSON via `System.Text.Json` | Core |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
 | **Etymon.Schema.TypeScript** | TypeScript type declarations from the same schemas | Core, Schema |
-| **Etymon.Contracts** | Type-level and cross-field invariants, exposed as data | Core |
-| **Etymon.Contracts.FsCheck** | Generators of valid values, and of invalid ones for negative testing | Core, Schema, Contracts, FsCheck |
+| **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
+| **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
 | **Etymon.Config** | Configuration from environment and files, decoded through a schema, reporting every problem at startup | Core, Schema |
-| **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing, and SQL generation | Core, Schema, Contracts |
+| **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing, and SQL generation | Core, Schema, Invariants |
 | **Etymon.Api** | HTTP endpoints defined once: routes, requests, responses, typed errors | Core, Schema, Schema.OpenApi |
 | **Etymon.Api.AspNetCore** | The server adapter | Api |
 | **Etymon.Api.Client** | A typed `HttpClient` client | Api |
@@ -61,7 +62,10 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
   codecs exactly as they are.
 - **"I want JSON and validation from one definition."** → `Etymon.Schema`.
 - **"…and an OpenAPI document that cannot drift from it."** → add `Etymon.Schema.OpenApi`.
-- **"…and property tests that only generate valid values."** → add `Etymon.Contracts.FsCheck`.
+- **"…and property tests that only ever generate values my schema accepts."**
+  → add `Etymon.Invariants.FsCheck`.
+- **"I have a rule that no single field can hold — an end date after a start
+  date."** → `Etymon.Invariants`.
 - **"…and a database schema, reviewable in a pull request."** → add `Etymon.Migrations`.
 - **"I want all of it."** → `Etymon`, plus `Etymon.Api.AspNetCore` if you are
   writing a server. The meta-package leaves the ASP.NET adapter out on purpose:

@@ -64,7 +64,7 @@ SchemaInfo.constraints emailSchema.Info
 
 That list is the point of the whole suite. `Etymon.Schema.OpenApi` turns it into
 JSON Schema keywords, `Etymon.Migrations` into SQL constraints,
-`Etymon.Contracts.FsCheck` into generators — every one of them reading the same
+`Etymon.Invariants.FsCheck` into generators — every one of them reading the same
 declaration rather than restating it.
 
 ## What it covers

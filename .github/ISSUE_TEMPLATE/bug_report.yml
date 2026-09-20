@@ -18,8 +18,8 @@ body:
         - Etymon.Schema
         - Etymon.Schema.OpenApi
         - Etymon.Schema.TypeScript
-        - Etymon.Contracts
-        - Etymon.Contracts.FsCheck
+        - Etymon.Invariants
+        - Etymon.Invariants.FsCheck
         - Etymon.Config
         - Etymon.Migrations
         - Etymon.Api

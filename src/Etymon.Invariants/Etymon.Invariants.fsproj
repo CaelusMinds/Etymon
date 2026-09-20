@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Rules that must always be true of a type, declared once and exposed as data. For the cross-field rules that cannot live on any single field -- an end date after a start date, a discount within a total, two fields present together or not at all. Every rule runs, so every failure is reported.</Description>
+    <PackageTags>$(PackageTags);invariants;rules;cross-field;domain-model</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Invariant.fs" />
+    <Compile Include="Invariants.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -127,7 +127,7 @@ module Format =
 /// <remarks>
 /// This is the single constraint vocabulary for the whole suite. <c>Etymon.Schema</c>
 /// attaches these to fields; <c>Etymon.Schema.OpenApi</c>, <c>Etymon.Migrations</c> and
-/// <c>Etymon.Contracts.FsCheck</c> each read them without ever running the check that
+/// <c>Etymon.Invariants.FsCheck</c> each read them without ever running the check that
 /// produced them. Anything expressible here can be derived into a JSON Schema keyword,
 /// a SQL CHECK clause, or a generator; anything that cannot is <c>Opaque</c>, and is
 /// documented but never derived.

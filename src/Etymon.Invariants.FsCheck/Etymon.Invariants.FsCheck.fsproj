@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>FsCheck generators that produce only values a schema accepts, generators of values it should reject, and ready-made property checks for round-tripping, determinism and error placement. Values are generated as JSON and decoded through the schema itself, so they are valid by the same definition production code uses.</Description>
+    <PackageTags>$(PackageTags);fscheck;property-testing;generators;test-data</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema;Etymon.Invariants</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="JsonGen.fs" />
+    <Compile Include="Generate.fs" />
+    <Compile Include="Properties.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsCheck" />
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+    <ProjectReference Include="../Etymon.Invariants/Etymon.Invariants.fsproj" />
+  </ItemGroup>
+
+</Project>
