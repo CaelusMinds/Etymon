@@ -211,6 +211,11 @@ local feed:
 Guides live in [`docs/`](docs/) and the API reference is generated from XML doc
 comments with [fsdocs](https://fsprojects.github.io/FSharp.Formatting/).
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md). Packages go to nuget.org as previews; a
+release is a tag, and the push sits behind a GitHub environment.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests are welcome,
