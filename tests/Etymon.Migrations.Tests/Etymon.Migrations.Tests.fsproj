@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SnapshotDirectory</_Parameter1>
+      <_Parameter2>$(MSBuildProjectDirectory)/snapshots</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Shared/Snapshot.fs" Link="Snapshot.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="MappingTests.fs" />
+    <Compile Include="ScriptTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The driver is a test dependency only. Etymon.Migrations generates SQL
+         text and executes nothing, so it carries no driver itself. But a
+         generated statement nobody runs is a string that looks like SQL. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <ProjectReference Include="../../src/Etymon.Migrations/Etymon.Migrations.fsproj" />
+  </ItemGroup>
+
+</Project>

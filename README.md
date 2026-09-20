@@ -45,7 +45,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
 | **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
 | **Etymon.Config** | Configuration through a schema, reporting every problem at once with what was expected and which source supplied it | Core, Base, Schema |
-| **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing, and SQL generation | Core, Schema, Invariants |
+| **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing and SQL generation. Carries no database driver | Core, Schema |
 | **Etymon.Api** | HTTP endpoints defined once: routes, requests, responses, typed errors | Core, Schema, Schema.OpenApi |
 | **Etymon.Api.AspNetCore** | The server adapter | Api |
 | **Etymon.Api.Client** | A typed `HttpClient` client | Api |

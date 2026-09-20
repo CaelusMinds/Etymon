@@ -1,0 +1,72 @@
+{
+  "formatVersion": 1,
+  "tables": [
+    {
+      "name": "Person",
+      "columns": [
+        {
+          "name": "id",
+          "type": {
+            "kind": "text"
+          },
+          "nullable": false,
+          "constraints": []
+        },
+        {
+          "name": "name",
+          "type": {
+            "kind": "varchar",
+            "value": 100
+          },
+          "nullable": false,
+          "constraints": [
+            {
+              "kind": "length",
+              "value": {
+                "min": 1,
+                "max": 100
+              }
+            }
+          ]
+        },
+        {
+          "name": "age",
+          "type": {
+            "kind": "integer"
+          },
+          "nullable": false,
+          "constraints": [
+            {
+              "kind": "range",
+              "value": {
+                "min": {
+                  "kind": "int",
+                  "value": 0
+                },
+                "max": {
+                  "kind": "int",
+                  "value": 130
+                },
+                "exclusiveMin": false,
+                "exclusiveMax": false
+              }
+            }
+          ]
+        },
+        {
+          "name": "email",
+          "type": {
+            "kind": "text"
+          },
+          "nullable": true,
+          "constraints": []
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "unique": [],
+      "foreignKeys": []
+    }
+  ]
+}

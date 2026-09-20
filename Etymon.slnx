@@ -7,6 +7,7 @@
     <Project Path="src/Etymon.Core/Etymon.Core.fsproj" />
     <Project Path="src/Etymon.Invariants.FsCheck/Etymon.Invariants.FsCheck.fsproj" />
     <Project Path="src/Etymon.Invariants/Etymon.Invariants.fsproj" />
+    <Project Path="src/Etymon.Migrations/Etymon.Migrations.fsproj" />
     <Project Path="src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
     <Project Path="src/Etymon.Schema/Etymon.Schema.fsproj" />
     <Project Path="src/Etymon.Base/Etymon.Base.fsproj" />
