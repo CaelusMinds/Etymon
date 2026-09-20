@@ -84,6 +84,20 @@ jobs:
           name: packages
           path: artifacts/packages/*.nupkg
 
+      # NuGet/login fails with "Input required and not supplied: user" when the
+      # secret is missing, which says nothing about where the secret should be.
+      # Checking it here turns that into an instruction.
+      - name: Check the publishing identity is configured
+        shell: bash
+        env:
+          NUGET_USER: ${{ secrets.NUGET_USER }}
+        run: |
+          if [ -z "${NUGET_USER}" ]; then
+            echo "::error::NUGET_USER is empty. It must be a *secret* (not a variable) named exactly NUGET_USER, on this repository -- CaelusMinds/Etymon, not a fork or mirror -- either as a repository secret or on the 'nuget' environment. Its value is the nuget.org profile name that owns the trusted-publishing policy."
+            exit 1
+          fi
+          echo "Publishing as ${NUGET_USER}"
+
       # Trusted Publishing. The key is requested immediately before the push
       # because it expires in an hour, and each OIDC token buys exactly one key.
       #
