@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Compile Include="ParseTests.fs" />
+    <Compile Include="StrTests.fs" />
+    <Compile Include="DictEnvTests.fs" />
+    <Compile Include="FilesTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Std/Etymon.Std.fsproj" />
+  </ItemGroup>
+
+</Project>

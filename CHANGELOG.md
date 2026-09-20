@@ -13,6 +13,23 @@ be reconsidered at 1.0.
 
 ### Added
 
+- **Etymon.Std** — an F#-idiomatic layer over the base library, depending on
+  nothing but `FSharp.Core` and on no other Etymon package.
+  - `Parse`: culture-explicit parsing returning `option`. The plain names use the
+    invariant culture and disallow digit grouping, because `NumberStyles.Number`
+    parses `"1,5"` as `15` there. `Parse.float` rejects NaN and the infinities;
+    `Parse.enum` rejects a number with no matching member.
+  - `Str`: string operations that never throw on `null` and are ordinal unless
+    their name says otherwise. Named `Str` so as not to shadow FSharp.Core`s
+    `String` module.
+  - `Dict`: `option`-returning lookups over `IDictionary` and
+    `IReadOnlyDictionary`, plus a case-insensitive constructor.
+  - `Env`: environment variables as `option`, treating blank as absent.
+  - `File`, `Dir` and `FileError`: file IO returning `Result` with a typed error
+    union naming the cases a caller can act on.
+- Preview versioning (`VersionSuffix`), and `eng/pack-local.ps1` to pack the
+  suite into a local NuGet feed that other solutions can restore from.
+
 - **Etymon.Core** — the foundation of the suite.
   - `Path` and `PathSegment`: a location inside a value, rendering as
     `address.zip` or `items[3].name`, with quoting for keys that are not bare

@@ -19,6 +19,16 @@
        ========================================================== -->
   <PropertyGroup>
     <VersionPrefix>0.1.0</VersionPrefix>
+    <!--
+      Everything before the first stable release is a preview. A version on
+      nuget.org can never be deleted, only unlisted, and the number is burned
+      either way, so 0.1.0 itself is a one-shot that should not be spent until
+      the API has survived a real consumer. Previews are cheap and disposable.
+
+      Bump the counter for each drop. A stable release clears it:
+          dotnet pack -c Release -p:VersionSuffix=
+    -->
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.1</VersionSuffix>
   </PropertyGroup>
 
   <!-- ==========================================================
