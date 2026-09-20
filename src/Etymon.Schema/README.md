@@ -1,11 +1,49 @@
 # Etymon.Schema
 
-Define the type once. Derive everything else.
+**Define the type once. Derive everything else.**
 
 Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
 `Etymon.Core` and `Etymon.Base`, and on no NuGet package at all beyond
 `FSharp.Core` — `System.Text.Json` ships in the shared framework for both target
 frameworks, so it is an in-box API here rather than a dependency you inherit.
+
+## Do not install this for the JSON
+
+F# already has good JSON libraries. [Thoth.Json]'s decoder combinators look a
+great deal like `Schema.object`, [Fleece] and [Chiron] are mature, and
+[FSharp.SystemTextJson] handles records and unions with almost no ceremony.
+**Nobody should switch libraries for the codec alone**, and this package does not
+ask you to.
+
+The reason to write a `Schema<'T>` is what else comes out of it. One constraint
+declaration —
+
+```fsharp
+let ageSchema = Schema.int |> Schema.constrain (Check.intRange (Some 0) (Some 130))
+```
+
+— reaches five places, and none of them restate it:
+
+```fsharp
+Schema.fromJson personSchema payload    // "age: must be between 0 and 130"
+OpenApi.toJsonSchema personSchema       // "minimum": 0, "maximum": 130
+Mapping.tableOf options personSchema    // CHECK ("age" >= 0 AND "age" <= 130)
+Generate.valid personSchema             // only ever generates ages in range
+Config.load personSchema sources        // "age: expected an integer (from environment)"
+```
+
+If you only want the JSON, use Thoth. If you want the OpenAPI document, the SQL
+and the generators to be incapable of disagreeing with the decoder, that is what
+this is for.
+
+One advantage does hold even ignoring all that: a `Schema<'T>` is a **single
+value**, not a separate encoder and decoder that can drift apart. There is no
+way to change how a value is written without changing how it is read.
+
+[Thoth.Json]: https://github.com/thoth-org/Thoth.Json
+[Chiron]: https://github.com/xyncro/chiron
+[Fleece]: https://github.com/fsprojects/Fleece
+[FSharp.SystemTextJson]: https://github.com/Tarmil/FSharp.SystemTextJson
 
 ## The idea
 

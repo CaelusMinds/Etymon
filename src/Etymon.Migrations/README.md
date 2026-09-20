@@ -8,6 +8,25 @@ Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
 generates SQL text and executes nothing, so a project can produce and review
 migrations without taking on Npgsql.
 
+## If you use EF Core, use EF Core migrations
+
+Stated first because it is the most likely reason not to install this.
+
+[EF Core][ef] does types-to-migrations too, and does it with far more: navigation
+properties and relationships, a migrations history table, `dotnet ef` tooling, a
+provider ecosystem. **If EF owns your schema, let it.** Running both means two
+things generating DDL from two models, which is precisely the drift this suite
+exists to prevent — and you can still take the rest of Etymon for JSON, OpenAPI,
+validation and configuration.
+
+This package is for stacks without an ORM: Dapper, raw ADO.NET, F#-first
+applications where the alternative today is hand-writing DDL. Against that
+baseline it offers immutable F# records rather than mutable entity classes, a
+refusal to guess where EF would apply a convention, and SQL you read in a pull
+request rather than a generated C# class.
+
+[ef]: https://learn.microsoft.com/ef/core/
+
 ## Ambiguity is an error, not a guess
 
 This is the design decision the whole package turns on.
