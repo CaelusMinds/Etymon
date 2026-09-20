@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>SnapshotDirectory</_Parameter1>
+      <_Parameter2>$(MSBuildProjectDirectory)/snapshots</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Shared/Snapshot.fs" Link="Snapshot.fs" />
+    <Compile Include="ApiTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Api/Etymon.Api.fsproj" />
+    <ProjectReference Include="../../src/Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
+  </ItemGroup>
+
+</Project>

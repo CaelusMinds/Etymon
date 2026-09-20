@@ -23,12 +23,10 @@ Generate.valid personSchema             // only ever generates ages in range
 Config.load personSchema sources        // "age: expected an integer (from environment)"
 ```
 
-> **Status: pre-release.** Seven of nine phases are complete. `Etymon.Core`,
-> `Etymon.Base`, `Etymon.Schema`, `Etymon.Schema.OpenApi`, `Etymon.Invariants`,
-> `Etymon.Invariants.FsCheck`, `Etymon.Config` and `Etymon.Migrations` are built
-> and tested — **657 tests**, each run on both net8.0 and net10.0. The
-> `Etymon.Api` family, `Etymon.Schema.TypeScript` and the meta-package are
-> planned, not shipped. Nothing is on NuGet yet.
+> **Status: pre-release.** Eleven of the thirteen packages are built and tested —
+> **691 tests**, each run on both net8.0 and net10.0. Still to come:
+> `Etymon.Api.AspNetCore`, `Etymon.Api.Client`, the meta-package, the samples and
+> the documentation site. Nothing is on NuGet yet.
 
 ## Packages
 
@@ -40,12 +38,13 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Base** | The .NET base library, returning `option` and `Result` instead of `null` and exceptions | FSharp.Core only |
 | **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document | Core, Base |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
-| **Etymon.Schema.TypeScript** | TypeScript type declarations from the same schemas | Core, Schema |
+| **Etymon.Schema.TypeScript** | TypeScript declarations from the same schemas. Types only | Core, Schema |
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
 | **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
 | **Etymon.Config** | Configuration through a schema, reporting every problem at once with what was expected and which source supplied it | Core, Base, Schema |
 | **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing and SQL generation. Carries no database driver | Core, Schema |
-| **Etymon.Api** | HTTP endpoints defined once: routes, requests, responses, typed errors | Core, Schema, Schema.OpenApi |
+| **Etymon.Api** | HTTP endpoints described once: method, typed route, request, responses, typed failures. Performs no HTTP | Core, Base, Schema, Schema.OpenApi |
+| **Etymon.Api.Giraffe** | Serves an endpoint as a Giraffe `HttpHandler`, composing into the routing you already have | Api, Giraffe |
 | **Etymon.Api.AspNetCore** | The server adapter, feeding ASP.NET Core's own OpenAPI pipeline rather than replacing it | Api |
 | **Etymon.Api.Client** | A typed `HttpClient` client | Api |
 | **Etymon** | Meta-package. No code; references everything except the ASP.NET adapter | — |
@@ -67,10 +66,20 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
   date."** → `Etymon.Invariants`.
 - **"…and a database schema, reviewable in a pull request."** → add
   `Etymon.Migrations` — but read the note about EF Core below first.
-- **"I want all of it."** → `Etymon`, plus `Etymon.Api.AspNetCore` if you are
-  writing a server. The meta-package leaves the ASP.NET adapter out on purpose:
-  a framework reference is viral, and it would break every console app and
-  library that installed the meta-package.
+- **"I already use Giraffe and want to keep it."** → `Etymon.Api` +
+  `Etymon.Api.Giraffe`. Endpoints become `HttpHandler`s that compose into the
+  `choose` you already have; your pipeline and existing routes do not change,
+  and adoption is one endpoint at a time.
+- **"I want typed endpoints without Giraffe or any other F# web framework."**
+  → `Etymon.Api` + `Etymon.Api.AspNetCore`. ASP.NET Core is the floor — Etymon
+  is not a web server and will not become one.
+- **"I only want to call someone else's API, or generate types for a frontend."**
+  → `Etymon.Api` + `Etymon.Api.Client`, or `Etymon.Schema.TypeScript`. Neither
+  needs a server at all.
+- **"I want all of it."** → `Etymon`, plus an adapter if you are writing a
+  server. The meta-package leaves the ASP.NET adapter out on purpose: a
+  framework reference is viral, and it would break every console app and library
+  that installed the meta-package.
 
 ## How this compares
 

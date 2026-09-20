@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>TypeScript type declarations generated from an Etymon schema, so a non-F# frontend shares one contract with the server. Types only: no fetch client and no opinion about axios versus fetch. Emits from the schema directly rather than through an OpenAPI document.</Description>
+    <PackageTags>$(PackageTags);typescript;codegen;frontend;contracts</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TypeScript.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>

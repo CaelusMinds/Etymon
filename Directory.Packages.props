@@ -19,6 +19,7 @@
        an in-box API rather than a NuGet dependency. -->
   <ItemGroup>
     <PackageVersion Include="FsCheck" Version="3.4.0" />
+    <PackageVersion Include="Giraffe" Version="8.3.0" />
   </ItemGroup>
 
   <!-- Test-only. Never referenced by a shipping package. -->

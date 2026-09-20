@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Serves an Etymon.Api endpoint as a Giraffe HttpHandler. Does not replace Giraffe: the result composes into the routing you already have, so endpoints can be adopted one at a time.</Description>
+    <PackageTags>$(PackageTags);giraffe;http;aspnetcore</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema;Etymon.Api</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="GiraffeAdapter.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Giraffe" />
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+    <ProjectReference Include="../Etymon.Api/Etymon.Api.fsproj" />
+  </ItemGroup>
+
+</Project>

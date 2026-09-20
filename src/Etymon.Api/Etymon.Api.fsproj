@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>HTTP endpoints described once: method, typed route, query parameters, request and response schemas, and typed failures. Performs no HTTP itself. Separate adapter packages interpret the same declaration as a Giraffe handler, an ASP.NET Core route, a typed client, OpenAPI paths or TypeScript declarations.</Description>
+    <PackageTags>$(PackageTags);http;api;endpoints;rest;openapi</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Base;Etymon.Schema;Etymon.Schema.OpenApi</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Route.fs" />
+    <Compile Include="Endpoint.fs" />
+    <Compile Include="ApiOpenApi.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Base/Etymon.Base.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+    <ProjectReference Include="../Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
+  </ItemGroup>
+
+</Project>

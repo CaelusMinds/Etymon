@@ -9,7 +9,10 @@
     <Project Path="src/Etymon.Invariants/Etymon.Invariants.fsproj" />
     <Project Path="src/Etymon.Migrations/Etymon.Migrations.fsproj" />
     <Project Path="src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
+    <Project Path="src/Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
     <Project Path="src/Etymon.Schema/Etymon.Schema.fsproj" />
+    <Project Path="src/Etymon.Api.Giraffe/Etymon.Api.Giraffe.fsproj" />
+    <Project Path="src/Etymon.Api/Etymon.Api.fsproj" />
     <Project Path="src/Etymon.Base/Etymon.Base.fsproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -18,6 +21,7 @@
     <Project Path="tests/Etymon.Invariants.Tests/Etymon.Invariants.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.OpenApi.Tests/Etymon.Schema.OpenApi.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.Tests/Etymon.Schema.Tests.fsproj" />
+    <Project Path="tests/Etymon.Api.Tests/Etymon.Api.Tests.fsproj" />
     <Project Path="tests/Etymon.Base.Tests/Etymon.Base.Tests.fsproj" />
   </Folder>
 </Solution>
