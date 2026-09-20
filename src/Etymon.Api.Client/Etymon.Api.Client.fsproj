@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Calls an Etymon.Api endpoint over HTTP. The declaration is enough to build the URL, encode the body and decode the response, so a console application calling an Etymon-described API needs no web framework and no server.</Description>
+    <PackageTags>$(PackageTags);httpclient;api-client;typed-client</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema;Etymon.Api</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Client.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+    <ProjectReference Include="../Etymon.Api/Etymon.Api.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -12,12 +12,12 @@
   <ItemGroup>
     <Compile Include="../Shared/Snapshot.fs" Link="Snapshot.fs" />
     <Compile Include="../Shared/Domain.fs" Link="Domain.fs" />
-    <Compile Include="OpenApiTests.fs" />
+    <Compile Include="TypeScriptTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
+    <ProjectReference Include="../../src/Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
   </ItemGroup>
 
 </Project>

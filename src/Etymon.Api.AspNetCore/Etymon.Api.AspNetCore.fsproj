@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Registers an Etymon.Api endpoint on ASP.NET Core minimal-API routing. Needs no third-party web framework: ASP.NET Core is the platform, so this is the adapter for an application that does not want one.</Description>
+    <PackageTags>$(PackageTags);aspnetcore;minimal-api;http</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema;Etymon.Api</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="MinimalApi.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+    <ProjectReference Include="../Etymon.Api/Etymon.Api.fsproj" />
+  </ItemGroup>
+
+</Project>

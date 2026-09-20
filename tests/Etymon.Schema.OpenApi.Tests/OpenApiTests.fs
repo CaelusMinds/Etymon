@@ -4,7 +4,7 @@ open System.Text.Json.Nodes
 open Expecto
 open Etymon
 open Etymon.Tests
-open Etymon.Schema.OpenApi.Tests.Domain
+open Etymon.Tests.Domain
 
 /// The keyword at a path in a rendered schema, as text. Keeps the assertions
 /// about individual keywords readable next to the whole-document snapshots.

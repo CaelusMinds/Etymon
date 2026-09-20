@@ -23,10 +23,11 @@ Generate.valid personSchema             // only ever generates ages in range
 Config.load personSchema sources        // "age: expected an integer (from environment)"
 ```
 
-> **Status: pre-release.** Eleven of the thirteen packages are built and tested —
-> **691 tests**, each run on both net8.0 and net10.0. Still to come:
-> `Etymon.Api.AspNetCore`, `Etymon.Api.Client`, the meta-package, the samples and
-> the documentation site. Nothing is on NuGet yet.
+> **Status: pre-release.** All thirteen code packages are built and tested —
+> **730 tests**, run on both net8.0 and net10.0, including end-to-end tests that
+> drive the generated client over real HTTP against both a Giraffe server and a
+> minimal-API one. Still to come: the `Etymon` meta-package, the samples and the
+> documentation site. Nothing is on NuGet yet.
 
 ## Packages
 
@@ -45,8 +46,8 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing and SQL generation. Carries no database driver | Core, Schema |
 | **Etymon.Api** | HTTP endpoints described once: method, typed route, request, responses, typed failures. Performs no HTTP | Core, Base, Schema, Schema.OpenApi |
 | **Etymon.Api.Giraffe** | Serves an endpoint as a Giraffe `HttpHandler`, composing into the routing you already have | Api, Giraffe |
-| **Etymon.Api.AspNetCore** | The server adapter, feeding ASP.NET Core's own OpenAPI pipeline rather than replacing it | Api |
-| **Etymon.Api.Client** | A typed `HttpClient` client | Api |
+| **Etymon.Api.AspNetCore** | Serves an endpoint on ASP.NET Core minimal-API routing, with no third-party web framework | Api, ASP.NET Core |
+| **Etymon.Api.Client** | Calls an endpoint over HTTP from the same declaration the server is built from. No server, no web framework | Api |
 | **Etymon** | Meta-package. No code; references everything except the ASP.NET adapter | — |
 
 ## Which package do I need?
@@ -112,9 +113,14 @@ convention, and produces SQL you review in a pull request rather than a
 generated C# class.
 
 **HTTP APIs — ASP.NET Core's built-in OpenAPI, [Giraffe], [Oxpecker],
-[Fable.Remoting].** ASP.NET already generates schemas from your types.
-`Etymon.Api.AspNetCore` is therefore planned to *feed* that pipeline rather than
-replace it, so it can be adopted one endpoint at a time. Fable.Remoting solves a
+[Fable.Remoting].** ASP.NET already generates schemas from your types by
+reflecting over them, which is a shorter route to a document if a document is
+all you want. Etymon's endpoints are values, so the same declaration also
+produces the client and the TypeScript, and the adapters register on routing you
+already have — one endpoint at a time, beside whatever else is mapped.
+`Etymon.Api.AspNetCore` does not currently attach Etymon's schemas to ASP.NET's
+own OpenAPI metadata; `ApiOpenApi` emits the document and you serve it. Wiring
+the two together is worth doing and has not been done. Fable.Remoting solves a
 different problem — RPC over shared F# types for a Fable client, with no routes
 or verbs — so the overlap is smaller than it looks.
 

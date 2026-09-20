@@ -11,6 +11,8 @@
     <Project Path="src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
     <Project Path="src/Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
     <Project Path="src/Etymon.Schema/Etymon.Schema.fsproj" />
+    <Project Path="src/Etymon.Api.AspNetCore/Etymon.Api.AspNetCore.fsproj" />
+    <Project Path="src/Etymon.Api.Client/Etymon.Api.Client.fsproj" />
     <Project Path="src/Etymon.Api.Giraffe/Etymon.Api.Giraffe.fsproj" />
     <Project Path="src/Etymon.Api/Etymon.Api.fsproj" />
     <Project Path="src/Etymon.Base/Etymon.Base.fsproj" />
@@ -20,7 +22,10 @@
     <Project Path="tests/Etymon.Core.Tests/Etymon.Core.Tests.fsproj" />
     <Project Path="tests/Etymon.Invariants.Tests/Etymon.Invariants.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.OpenApi.Tests/Etymon.Schema.OpenApi.Tests.fsproj" />
+    <Project Path="tests/Etymon.Migrations.Tests/Etymon.Migrations.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.Tests/Etymon.Schema.Tests.fsproj" />
+    <Project Path="tests/Etymon.Schema.TypeScript.Tests/Etymon.Schema.TypeScript.Tests.fsproj" />
+    <Project Path="tests/Etymon.Api.Integration.Tests/Etymon.Api.Integration.Tests.fsproj" />
     <Project Path="tests/Etymon.Api.Tests/Etymon.Api.Tests.fsproj" />
     <Project Path="tests/Etymon.Base.Tests/Etymon.Base.Tests.fsproj" />
   </Folder>

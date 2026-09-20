@@ -1,6 +1,10 @@
 /// The worked example used throughout these tests, kept in one place so that the
 /// documented shape and the tested shape cannot drift apart.
-module Etymon.Schema.OpenApi.Tests.Domain
+///
+/// Shared between the derivations rather than copied into each, because two
+/// derivations of the same schema disagreeing is precisely the failure this
+/// suite exists to prevent -- and a fixture that has drifted cannot show it.
+module Etymon.Tests.Domain
 
 open Etymon
 

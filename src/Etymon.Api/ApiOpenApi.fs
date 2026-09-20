@@ -13,10 +13,11 @@ open System.Text.Json.Nodes
 /// from the way the server routes it, because both read the same value.
 /// </para>
 /// <para>
-/// Where an application already has ASP.NET Core's own OpenAPI generation, use
-/// <c>Etymon.Api.AspNetCore</c> to feed this into that pipeline instead of
-/// emitting a competing document. Replacing a pipeline somebody already has is a
-/// much bigger ask than adding to it.
+/// This emits the document; serving it is the application's business. An
+/// application that already runs ASP.NET Core's own OpenAPI generation will have
+/// two documents until the two are wired together, which has not been done yet
+/// — feeding these schemas into that pipeline is a smaller ask than replacing
+/// it, and it is the obvious next thing for <c>Etymon.Api.AspNetCore</c>.
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]

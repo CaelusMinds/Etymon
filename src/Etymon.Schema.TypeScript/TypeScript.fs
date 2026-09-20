@@ -67,6 +67,29 @@ module TypeScript =
             | _ -> None
         )
 
+    /// <summary>
+    /// The warning a number needs, when TypeScript cannot hold what the schema
+    /// promises.
+    /// </summary>
+    /// <remarks>
+    /// TypeScript has one numeric type, and <c>JSON.parse</c> produces IEEE-754
+    /// doubles from it. An <c>int64</c> past 2^53, or a <c>decimal</c> with more
+    /// significant digits than a double holds, arrives in the frontend quietly
+    /// rounded. Etymon cannot fix that — the value really is a JSON number, and
+    /// emitting <c>string</c> would misdescribe the payload — but it refuses to
+    /// let the generated type imply a precision the wire format does not have.
+    /// </remarks>
+    let rec private precisionNote (info: SchemaInfo) =
+        match SchemaInfo.strip info with
+        | SPrim PrimKind.Int64 ->
+            Some "Encoded as a JSON number: values beyond 2^53 lose precision when JavaScript parses them."
+        | SPrim PrimKind.Decimal ->
+            Some "Encoded as a JSON number: JavaScript parses it as a double, so exactness is not preserved."
+        | SNullable inner
+        | SList inner
+        | SMap inner -> precisionNote inner
+        | _ -> None
+
     let private comment (indent: string) (text: string option) (builder: StringBuilder) =
         match text with
         | Some description ->
@@ -78,7 +101,16 @@ module TypeScript =
         builder.Append("export interface ").Append(name).AppendLine(" {") |> ignore
 
         for field in fields do
-            comment "  " field.Description builder
+            // A field that was documented and also needs a precision warning gets
+            // both: dropping either one would be the generated type keeping
+            // something back.
+            let description =
+                match field.Description, precisionNote field.Schema with
+                | Some prose, Some note -> Some(prose + " " + note)
+                | Some prose, None -> Some prose
+                | None, note -> note
+
+            comment "  " description builder
 
             let rendered =
                 match literalUnion field.Schema with
@@ -98,25 +130,25 @@ module TypeScript =
     let private emitUnion (name: string) (tag: string) (cases: (string * SchemaInfo) list) (builder: StringBuilder) =
         builder.Append("export type ").Append(name).AppendLine(" =") |> ignore
 
-        for caseTag, payload in cases do
-            let body =
-                match SchemaInfo.strip payload with
-                // A case with no payload is the tag alone, matching how Etymon
-                // writes it on the wire.
-                | SPrim PrimKind.Raw -> ""
-                | _ -> "; readonly value: " + typeOf payload
+        let rendered =
+            cases
+            |> List.map (fun (caseTag, payload) ->
+                let body =
+                    match SchemaInfo.strip payload with
+                    // A case with no payload is the tag alone, matching how
+                    // Etymon writes it on the wire.
+                    | SPrim PrimKind.Raw -> ""
+                    | _ -> "; readonly value: " + typeOf payload
 
-            builder
-                .Append("  | { readonly ")
-                .Append(tag)
-                .Append(": \"")
-                .Append(caseTag)
-                .Append("\"")
-                .Append(body)
-                .AppendLine(" }")
-            |> ignore
+                "  | { readonly " + tag + ": \"" + caseTag + "\"" + body + " }"
+            )
 
-        builder.AppendLine(";") |> ignore
+        // The semicolon closes the last case rather than sitting on a line of its
+        // own, which is where somebody writing this by hand would put it.
+        let lastIndex = List.length rendered - 1
+
+        rendered
+        |> List.iteri (fun i line -> builder.AppendLine(if i = lastIndex then line + ";" else line) |> ignore)
 
     /// <summary>
     /// Declarations for every named type a schema reaches, ready to write to a
@@ -161,7 +193,11 @@ module TypeScript =
                 builder.Append("export type ").Append(name).Append(" = ").Append(typeOf other).AppendLine(";")
                 |> ignore
 
-        builder.ToString().TrimEnd() + Environment.NewLine
+        // StringBuilder.AppendLine writes Environment.NewLine, so the file would
+        // otherwise be CRLF on Windows and LF everywhere else. A generated .d.ts
+        // is checked in and reviewed, and one that changes line endings with the
+        // machine that produced it churns in every cross-platform repository.
+        builder.ToString().Replace("\r\n", "\n").TrimEnd() + "\n"
 
     /// <summary>Declarations for one schema.</summary>
     /// <example><code lang="fsharp">

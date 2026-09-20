@@ -40,6 +40,7 @@
     <EtymonTestOnlyPackage Include="Npgsql" />
     <EtymonTestOnlyPackage Include="Microsoft.Data.Sqlite" />
     <EtymonTestOnlyPackage Include="Testcontainers.PostgreSql" />
+    <EtymonTestOnlyPackage Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
 
   <Target Name="EtymonEnforceDependencyRules"
