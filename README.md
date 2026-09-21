@@ -24,7 +24,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fourteen packages are built, and the thirteen with
-> code in them are tested — **752 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **755 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
 
@@ -194,6 +194,31 @@ figures above: **12% faster, 32% less allocated**, with no API change.
 tuple per field, which is what buys error accumulation. Removing it would mean
 stopping at the first bad field, and that trade is the wrong way round for the
 problem this suite exists to solve.
+
+## Input somebody else chose
+
+If Etymon validates your API's requests, an attacker picks its input. Two
+properties follow, and both are tested rather than asserted.
+
+**Rejection is linear in the input.** Accumulating errors used to join a growing
+list per element, which is quadratic: 200,000 bad array elements — an 800 KB
+body — took **five minutes of CPU**, so anyone able to post to an endpoint could
+take a core off it. The error collection is now a concatenation tree, joined in
+constant time and flattened once. The same input takes **0.3 seconds**, and a
+test fails if it goes back to quadratic.
+
+**Deep nesting is refused, not crashed.** A recursive decoder walking a
+deliberately deep value is how a stack overflow happens, and a stack overflow
+cannot be caught — it takes the process down. `System.Text.Json` stops at depth
+64 first, and that is where the limit belongs.
+
+**What is still yours to bound.** Reporting every problem means a request with
+10,000 bad elements produces 10,000 errors: about 5 ms and 5.9 MB. That is
+linear and honest, but it is still roughly 150 times the size of the body that
+caused it. If your input is attacker-controlled and unbounded, cap the response
+at your boundary — `ValidationErrors.count` and `toList` are there for it.
+Etymon will not silently truncate, because reporting every problem at once is
+the thing it is for.
 
 ## Design commitments
 

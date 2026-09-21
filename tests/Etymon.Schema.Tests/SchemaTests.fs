@@ -105,6 +105,56 @@ let tests =
                 ]
 
             testList
+                "input somebody else chose"
+                [
+                    test "a large array of the wrong thing is rejected in linear time" {
+                        // Accumulation used to join a growing list per element,
+                        // which is quadratic: 200,000 bad elements took five
+                        // minutes of CPU for an 800 KB body, and anyone who could
+                        // post to an endpoint could take a core off it.
+                        //
+                        // The bound is deliberately loose. It is not measuring
+                        // how fast this is; it is measuring that it is not
+                        // quadratic, and the quadratic version needed well over a
+                        // minute to reach this point.
+                        let json = "[" + String.Join(",", Array.create 100_000 "\"x\"") + "]"
+
+                        let clock = Diagnostics.Stopwatch.StartNew()
+                        let result = Schema.fromJson (Schema.list Schema.int) json
+                        clock.Stop()
+
+                        Expect.equal (Validation.errorCount result) 100_000 "every element is still reported"
+
+                        Expect.isLessThan
+                            clock.Elapsed.TotalSeconds
+                            10.0
+                            "a rejection should not cost more than the request that caused it"
+                    }
+
+                    test "nesting past what the parser allows is an error, not a crash" {
+                        // A recursive decoder walking a deliberately deep value is
+                        // how a stack overflow happens, and a stack overflow cannot
+                        // be caught -- it takes the process with it. The parser
+                        // refuses first, and this pins that it keeps doing so.
+                        let deep = String.replicate 5_000 "[" + "1" + String.replicate 5_000 "]"
+                        let result = Schema.fromJson (Schema.list Schema.int) deep
+
+                        Expect.isTrue (Validation.isError result) "refused"
+
+                        match Validation.errorList result with
+                        | [ e ] -> Expect.equal e.Reason (ErrorReason.Rejected "malformed-json") "as malformed input"
+                        | other -> failtestf "expected one error, got %A" other
+                    }
+
+                    test "nesting within what the parser allows still decodes" {
+                        // The limit belongs to the parser, not to Etymon, so this
+                        // is here to notice if it ever moves.
+                        let nested = String.replicate 60 "[" + "1" + String.replicate 60 "]"
+                        Expect.isTrue (Validation.isError (Schema.fromJson Schema.int nested)) "wrong type, but read"
+                    }
+                ]
+
+            testList
                 "structure"
                 [
                     test "nullable reads null as absent" {

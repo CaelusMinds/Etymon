@@ -154,6 +154,10 @@ let sampleOrder =
 
 let orderJson = Schema.toJson orderSchema sampleOrder
 
+/// Ten thousand elements of the wrong type, as one array.
+let manyBadElements =
+    "[" + System.String.Join(",", Array.create 10_000 "\"x\"") + "]"
+
 // ---------------------------------------------------------------------------
 // The baselines.
 // ---------------------------------------------------------------------------

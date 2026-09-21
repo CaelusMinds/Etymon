@@ -56,3 +56,12 @@ type Rejecting() =
     [<Benchmark>]
     member _.FourBadFields() =
         Schema.fromJson customerSchema invalidCustomerJson
+
+    /// Ten thousand elements of the wrong type in one array.
+    ///
+    /// The shape of an amplification attack: a small body, a large answer. This
+    /// was quadratic until the error collection stopped being a list, and the
+    /// benchmark is here so that it is noticed if it becomes quadratic again.
+    [<Benchmark>]
+    member _.TenThousandBadElements() =
+        Schema.fromJson (Schema.list Schema.int) manyBadElements
