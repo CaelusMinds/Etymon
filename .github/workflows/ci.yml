@@ -72,7 +72,7 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet tool restore
       - name: Fantomas
-        run: dotnet fantomas --check src tests samples
+        run: dotnet fantomas --check src tests samples bench
 
   trim:
     name: trim analysis

@@ -24,3 +24,6 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+# BenchmarkDotNet writes its reports here.
+BenchmarkDotNet.Artifacts/

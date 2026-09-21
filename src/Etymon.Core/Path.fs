@@ -20,10 +20,14 @@ type PathSegment =
 /// // "address.zip"
 /// </code>
 /// </example>
-[<StructuredFormatDisplay("{Display}")>]
+[<StructuredFormatDisplay("{Display}"); Struct>]
 type Path =
     // Segments are stored innermost-first so that pushing is O(1); `Path.segments`
     // reverses them back into reading order.
+    //
+    // A struct because a path is pushed once per field on every successful
+    // decode, to describe an error that usually never happens. As a class the
+    // wrapper was a third of that cost on its own.
     private
     | Path of PathSegment list
 

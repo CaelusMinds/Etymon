@@ -2,6 +2,9 @@
   <Folder Name="/eng/">
     <Project Path="eng/TrimGate/TrimGate.fsproj" />
   </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Etymon.Benchmarks/Etymon.Benchmarks.fsproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Etymon.Config/Etymon.Config.fsproj" />
     <Project Path="src/Etymon.Core/Etymon.Core.fsproj" />

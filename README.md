@@ -24,7 +24,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fourteen packages are built, and the thirteen with
-> code in them are tested — **750 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **752 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
 
@@ -157,6 +157,43 @@ hand-roll. It is a thin package and nobody should adopt the suite for it.
 [FsConfig]: https://github.com/demystifyfp/FsConfig
 [NSwag]: https://github.com/RicoSuter/NSwag
 [openapi-typescript]: https://github.com/openapi-ts/openapi-typescript
+
+## What it costs
+
+A schema is slower than a codec you wrote by hand, and pretending otherwise
+would be the same kind of claim as the two stale numbers this README used to
+carry. Decoding an eight-field record, on one machine, with
+`bench/Etymon.Benchmarks`:
+
+| | Time | Allocated | Validates |
+| --- | ---: | ---: | :---: |
+| Hand-written `JsonDocument` loop | 557 ns | 336 B | no |
+| `System.Text.Json` (reflection) | 389 ns | 400 B | no |
+| **Etymon** | **1,606 ns** | **1,344 B** | **yes** |
+
+About three times the time and four times the allocation of a hand-written
+codec — and the hand-written codec checks nothing. Etymon is also applying an
+email format, two length bounds and a range in that measurement, and producing
+every failure with a path rather than the first one.
+
+Reproduce it yourself, which is the point of quoting it at all:
+
+```bash
+dotnet run --project bench/Etymon.Benchmarks -c Release -- --filter '*Decoding*'
+```
+
+**What has been done about it.** Paths are the machinery that turns a failure
+into `lines[2].quantity`, and a naive implementation builds them while
+descending into the value — paying on every successful field read for an error
+that never happens. Etymon builds them as an error unwinds instead, so a
+successful decode allocates nothing to describe a problem it did not find. That,
+plus making `Path` a struct, took decoding from 1,820 ns and 1,984 B to the
+figures above: **12% faster, 32% less allocated**, with no API change.
+
+**What has not.** The remainder is the applicative itself — a `Result` and a
+tuple per field, which is what buys error accumulation. Removing it would mean
+stopping at the first bad field, and that trade is the wrong way round for the
+problem this suite exists to solve.
 
 ## Design commitments
 

@@ -576,7 +576,10 @@ module Schema =
                     | JsonValueKind.Array ->
                         element.EnumerateArray()
                         |> Seq.toList
-                        |> List.mapi (fun i item -> schema.Read mode (Path.index i path) item)
+                        |> List.mapi (fun i item ->
+                            schema.Read mode Path.root item
+                            |> Validation.mapErrors (ValidationErrors.underIndex i)
+                        )
                         |> Validation.sequence
                     | _ -> Codec.mismatch "array" path element
             Info = SList schema.Info
@@ -614,7 +617,8 @@ module Schema =
                         element.EnumerateObject()
                         |> Seq.toList
                         |> List.map (fun property ->
-                            schema.Read mode (Path.field property.Name path) property.Value
+                            schema.Read mode Path.root property.Value
+                            |> Validation.mapErrors (ValidationErrors.underField property.Name)
                             |> Validation.map (fun value -> property.Name, value)
                         )
                         |> Validation.sequence
@@ -663,12 +667,19 @@ module Schema =
                     writer.WritePropertyName name
                     schema.Write writer (get value)
             ReadFields =
-                fun mode path element ->
-                    let fieldPath = Path.field name path
-
+                fun mode _ element ->
                     match element.TryGetProperty name with
-                    | true, property -> schema.Read mode fieldPath property
-                    | false, _ -> Codec.missing fieldPath
+                    | true, property ->
+                        // Matched rather than piped through mapErrors: the pipe
+                        // needs a partial application, and a closure per field is
+                        // the allocation this whole arrangement exists to avoid.
+                        // Ok is returned as it came, not rebuilt.
+                        let result = schema.Read mode Path.root property
+
+                        match result with
+                        | Ok _ -> result
+                        | Error errors -> Error(ValidationErrors.underField name errors)
+                    | false, _ -> Codec.missing (Path.field name Path.root)
         }
 
     /// <summary>
@@ -701,12 +712,13 @@ module Schema =
                         schema.Write writer present
                     | None -> ()
             ReadFields =
-                fun mode path element ->
-                    let fieldPath = Path.field name path
-
+                fun mode _ element ->
                     match element.TryGetProperty name with
                     | true, property when property.ValueKind = JsonValueKind.Null -> Ok None
-                    | true, property -> schema.Read mode fieldPath property |> Validation.map Some
+                    | true, property ->
+                        match schema.Read mode Path.root property with
+                        | Ok value -> Ok(Some value)
+                        | Error errors -> Error(ValidationErrors.underField name errors)
                     | false, _ -> Ok None
         }
 
@@ -735,12 +747,15 @@ module Schema =
                     writer.WritePropertyName name
                     schema.Write writer (get value)
             ReadFields =
-                fun mode path element ->
-                    let fieldPath = Path.field name path
-
+                fun mode _ element ->
                     match element.TryGetProperty name with
                     | true, property when property.ValueKind = JsonValueKind.Null -> Ok fallback
-                    | true, property -> schema.Read mode fieldPath property
+                    | true, property ->
+                        let result = schema.Read mode Path.root property
+
+                        match result with
+                        | Ok _ -> result
+                        | Error errors -> Error(ValidationErrors.underField name errors)
                     | false, _ -> Ok fallback
         }
 
@@ -790,12 +805,13 @@ module Schema =
                         true
                     | ValueNone -> false
             Read =
-                fun mode path element ->
-                    let valuePath = Path.field "value" path
-
+                fun mode _ element ->
                     match element.TryGetProperty "value" with
-                    | true, property -> payload.Read mode valuePath property |> Validation.map construct
-                    | false, _ -> Codec.missing valuePath
+                    | true, property ->
+                        payload.Read mode Path.root property
+                        |> Validation.mapErrors (ValidationErrors.underField "value")
+                        |> Validation.map construct
+                    | false, _ -> Codec.missing (Path.field "value" Path.root)
         }
 
     /// <summary>One case of a union with no payload, written as the tag alone.</summary>
@@ -849,7 +865,9 @@ module Schema =
                 fun mode path element ->
                     match element.ValueKind with
                     | JsonValueKind.Object ->
-                        let tagPath = Path.field tagField path
+                        // Built here rather than on the way in: every path below
+                        // is relative, and this one is only ever used to report.
+                        let tagPath = Path.field tagField Path.root
 
                         match element.TryGetProperty tagField with
                         | true, tagElement when tagElement.ValueKind = JsonValueKind.String ->

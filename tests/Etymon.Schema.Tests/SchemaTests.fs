@@ -376,6 +376,45 @@ let tests =
                             "the path survives the recursion"
                     }
 
+                    test "an error four levels down carries every step" {
+                        // Paths are not built while descending into a value; they
+                        // are assembled as an error unwinds, so that a successful
+                        // read allocates nothing to describe a problem it did not
+                        // find. That makes depth the thing to test: one level
+                        // working proves almost nothing about four.
+                        let json =
+                            """{"value":1,"children":[
+                                 {"value":2,"children":[
+                                   {"value":3,"children":[
+                                     {"value":"deep","children":[]}]}]}]}"""
+
+                        Expect.equal
+                            (messagesOf (Schema.fromJson Tree.schema json))
+                            [
+                                "children[0].children[0].children[0].value: must be a number, but was a string"
+                            ]
+                            "every field and every index, in order, outermost first"
+                    }
+
+                    test "errors at different depths each keep their own path" {
+                        // The re-rooting happens once per level per error. Two
+                        // errors at different depths in the same read is where
+                        // getting that wrong shows up as one path stamped onto
+                        // both.
+                        let json =
+                            """{"value":1,"children":[
+                                 {"value":"a","children":[]},
+                                 {"value":3,"children":[{"value":"b","children":[]}]}]}"""
+
+                        Expect.equal
+                            (messagesOf (Schema.fromJson Tree.schema json))
+                            [
+                                "children[0].value: must be a number, but was a string"
+                                "children[1].children[0].value: must be a number, but was a string"
+                            ]
+                            "two depths, two paths, neither borrowed from the other"
+                    }
+
                     test "definitions terminate on a recursive schema" {
                         let names = Schema.definitions Tree.schema |> Map.keys |> List.ofSeq
                         Expect.equal names [ "Tree" ] "recorded once, not forever"

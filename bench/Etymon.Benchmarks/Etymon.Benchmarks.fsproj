@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Compile Include="Domain.fs" />
+    <Compile Include="CodecBenchmarks.fs" />
+    <Compile Include="PathBenchmarks.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>
