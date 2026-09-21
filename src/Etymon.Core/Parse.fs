@@ -83,6 +83,16 @@ module Parse =
     let byte (value: string) =
         Byte.TryParse(value, NumberStyles.Integer, inv) |> toOption
 
+    /// <summary>
+    /// Parses a <c>byte</c> in a given culture, accepting that culture's grouping.
+    /// </summary>
+    /// <example><code lang="fsharp">
+    /// Parse.byteIn (CultureInfo "de-DE") "255" // Some 255uy
+    /// </code></example>
+    let byteIn (culture: CultureInfo) (value: string) =
+        Byte.TryParse(value, NumberStyles.Integer ||| NumberStyles.AllowThousands, culture)
+        |> toOption
+
     // ---- reals ---------------------------------------------------------------
 
     /// <summary>
@@ -249,6 +259,21 @@ module Parse =
         TimeOnly.TryParseExact(value, formats, inv, DateTimeStyles.None) |> toOption
 
     /// <summary>
+    /// Parses a <c>TimeOnly</c> the way a person in a given culture would write
+    /// one, which may be a twelve-hour clock.
+    /// </summary>
+    /// <remarks>
+    /// Not restricted to the ISO forms, because the whole point of taking a
+    /// culture is to accept what somebody typed rather than what a wire format
+    /// would have sent.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Parse.timeOnlyIn (CultureInfo "en-US") "2:30 PM" // Some 14:30
+    /// </code></example>
+    let timeOnlyIn (culture: CultureInfo) (value: string) =
+        TimeOnly.TryParse(value, culture, DateTimeStyles.None) |> toOption
+
+    /// <summary>
     /// Parses a <c>TimeSpan</c> in .NET's <c>[d.]hh:mm:ss[.fffffff]</c> form using
     /// the invariant culture.
     /// </summary>
@@ -257,6 +282,16 @@ module Parse =
     /// </code></example>
     let timeSpan (value: string) =
         TimeSpan.TryParse(value, inv) |> toOption
+
+    /// <summary>
+    /// Parses a <c>TimeSpan</c> in a given culture, which decides the separator
+    /// between the seconds and the fraction.
+    /// </summary>
+    /// <example><code lang="fsharp">
+    /// Parse.timeSpanIn (CultureInfo "de-DE") "1.02:03:04,5"
+    /// </code></example>
+    let timeSpanIn (culture: CultureInfo) (value: string) =
+        TimeSpan.TryParse(value, culture) |> toOption
 
     // ---- enums ---------------------------------------------------------------
 

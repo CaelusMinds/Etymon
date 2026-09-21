@@ -47,6 +47,14 @@ let tests =
 
                     table "int64" Parse.int64 [ "9007199254740993", 9007199254740993L ] [ ""; "abc"; "1.5" ]
                     table "byte" Parse.byte [ "0", 0uy; "255", 255uy ] [ "256"; "-1"; "" ]
+
+                    test "byteIn accepts the culture's grouping, and the plain one does not" {
+                        // Every other numeric type had its culture-taking variant
+                        // and byte did not, which is the kind of gap nobody finds
+                        // until they need the one that is missing.
+                        Expect.equal (Parse.byteIn de "1.00") (Some 100uy) "a dot groups in de-DE"
+                        Expect.equal (Parse.byte "1.00") None "and is still refused without a culture"
+                    }
                 ]
 
             testList
@@ -187,6 +195,23 @@ let tests =
                         Parse.timeSpan
                         [ "01:02:03", TimeSpan(1, 2, 3); "1.02:03:04", TimeSpan(1, 2, 3, 4) ]
                         [ ""; "abc"; "1h" ]
+
+                    test "timeOnlyIn reads a clock the way that culture writes it" {
+                        // The invariant form is the wire format and refuses this;
+                        // a culture is exactly what you pass when somebody typed
+                        // it rather than a machine sending it.
+                        Expect.equal (Parse.timeOnlyIn enUS "2:30 PM") (Some(TimeOnly(14, 30))) "a twelve-hour clock"
+                        Expect.equal (Parse.timeOnly "2:30 PM") None "which the invariant form still refuses"
+                    }
+
+                    test "timeSpanIn reads the culture's fraction separator" {
+                        Expect.equal
+                            (Parse.timeSpanIn de "00:00:01,5")
+                            (Some(TimeSpan.FromSeconds 1.5))
+                            "a comma separates the fraction in de-DE"
+
+                        Expect.equal (Parse.timeSpan "00:00:01,5") None "and the invariant form refuses it"
+                    }
                 ]
 
             testList

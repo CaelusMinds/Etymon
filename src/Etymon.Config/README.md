@@ -63,7 +63,7 @@ prints the whole settings record:
 
 ```fsharp
 Schema.required "password"
-    (Schema.string |> Schema.sensitive |> Schema.bimap Secret.create Secret.reveal)
+    (Schema.string |> Schema.sensitive |> Schema.convert Secret.create Secret.reveal)
     (fun d -> d.Password)
 ```
 ```fsharp

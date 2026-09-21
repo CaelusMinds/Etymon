@@ -114,7 +114,7 @@ module Api =
 
     /// The body-less schema used by endpoints that neither take nor return one.
     let private nothing: Schema<unit> =
-        Schema.bimap (fun (_: bool) -> ()) (fun () -> true) Schema.bool
+        Schema.convert (fun (_: bool) -> ()) (fun () -> true) Schema.bool
 
     let private create
         verb

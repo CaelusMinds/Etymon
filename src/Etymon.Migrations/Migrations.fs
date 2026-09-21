@@ -455,7 +455,7 @@ module Migrations =
             |> List.map (fun f -> Format.name f, f)
 
         Schema.string
-        |> Schema.bimap
+        |> Schema.convert
             (fun name ->
                 byName
                 |> List.tryFind (fun (known, _) -> known = name)

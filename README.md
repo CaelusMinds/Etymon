@@ -24,7 +24,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fourteen packages are built, and the thirteen with
-> code in them are tested — **807 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **810 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
 

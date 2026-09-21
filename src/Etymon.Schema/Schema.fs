@@ -488,11 +488,20 @@ module Schema =
 
     // ---- transformation ------------------------------------------------------
 
-    /// <summary>Changes the type a schema describes, where the change cannot fail.</summary>
+    /// <summary>
+    /// Changes the type a schema describes, where the change cannot fail and goes
+    /// both ways.
+    /// </summary>
+    /// <remarks>
+    /// Called <c>convert</c> rather than <c>bimap</c>, which it was: in every
+    /// other library <c>bimap</c> maps the two sides of a two-parameter type,
+    /// such as the success and the failure of a result. This maps one type to
+    /// another and back, which is a different thing wearing a familiar name.
+    /// </remarks>
     /// <example><code lang="fsharp">
-    /// Schema.int |> Schema.bimap (fun i -> i * 2) (fun i -> i / 2)
+    /// Schema.string |> Schema.convert Secret.create Secret.reveal
     /// </code></example>
-    let bimap (forward: 'A -> 'B) (backward: 'B -> 'A) (schema: Schema<'A>) : Schema<'B> =
+    let convert (forward: 'A -> 'B) (backward: 'B -> 'A) (schema: Schema<'A>) : Schema<'B> =
         {
             Write = fun w v -> schema.Write w (backward v)
             Read = fun mode path element -> schema.Read mode path element |> Validation.map forward
@@ -590,7 +599,7 @@ module Schema =
     /// Schema.toJson (Schema.array Schema.int) [| 1; 2 |] // "[1,2]"
     /// </code></example>
     let array (schema: Schema<'T>) : Schema<'T[]> =
-        list schema |> bimap List.toArray Array.toList
+        list schema |> convert List.toArray Array.toList
 
     /// <summary>
     /// A JSON object used as a string-keyed map of uniform values. Keys are
