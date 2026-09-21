@@ -9,6 +9,11 @@ things you keep in sync by remembering to.
 
 ## Where to start
 
+**[Why Etymon](why-etymon.html)** is the case for the suite: the same code
+written without the library and with it, side by side, for validation, OpenAPI,
+SQL, test data, configuration and HTTP — with what it costs, and when not to use
+it.
+
 The shortest honest introduction is
 [`samples/Etymon.Sample.Derivations`](https://github.com/CaelusMinds/Etymon/tree/main/samples/Etymon.Sample.Derivations):
 one `Booking` schema, then the JSON codec, the validation errors, the OpenAPI

@@ -30,6 +30,11 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 > `0.1.0-preview.3`; the API can still change, and a preview is where that should
 > happen.
 
+**New here?** [**Why Etymon**](docs/why-etymon.md) is the case for it: the same
+code written without the library and with it, side by side, for validation,
+OpenAPI, SQL, test data, configuration and HTTP — including what it costs and
+when not to use it.
+
 ## Packages
 
 Install only what you need, or take the `Etymon` meta-package for all of it.
@@ -286,8 +291,35 @@ local feed:
 
 ## Documentation
 
-Guides live in [`docs/`](docs/) and the API reference is generated from XML doc
-comments with [fsdocs](https://fsprojects.github.io/FSharp.Formatting/).
+- [**Why Etymon**](docs/why-etymon.md) — the same code without the library and
+  with it, for every derivation, with the costs and the cases where it is the
+  wrong choice.
+- [Guides](docs/guides.md) — describing a type, constraints as data, cross-field
+  rules, endpoints as values, migrations, configuration.
+- [Decisions](docs/decisions.md) — why things are the way they are, and what was
+  ruled out.
+- [Changelog](CHANGELOG.md) — every breaking change, per version, at the top.
+
+The API reference is generated from XML doc comments with
+[fsdocs](https://fsprojects.github.io/FSharp.Formatting/); every public function
+in every shipping package has one.
+
+## Keeping up
+
+**Etymon tracks .NET.** Every package targets `net8.0` and `net10.0`, and new
+targets are added as .NET ships them. `FSharp.Core` is pinned at the lowest
+version asked of consumers and compiled against it, so the library cannot
+accidentally use an API newer than its own floor. Every test runs on both
+frameworks on Windows, macOS and Linux on every commit — twice already a bug
+existed on exactly one of those and nowhere else.
+
+**It is built against a real application.** Etymon is developed alongside Keel,
+an accounting and payroll platform being built for production, which is its
+first and largest consumer and is adopting the suite across its contract and
+HTTP layers. Several things here exist because that consumer needed them, and
+several bugs were found the same way — including a dependency that would have
+put file-IO code into a browser payload, and a missing error-code mechanism that
+would have made adoption a breaking change for Keel's own integrators.
 
 ## Releasing
 
