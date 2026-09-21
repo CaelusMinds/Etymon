@@ -13,6 +13,31 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.6]
+
+### Fixed
+
+- **A wire verdict said "events".** The compatibility matrix is shared by both
+  policies, but its wording was written for the event one, so `Wire` concatenated
+  reasons that talked about events into verdicts about HTTP responses. The matrix
+  now states facts in neutral terms and each policy supplies its own advice --
+  which is the right layering anyway: an upcaster is the answer for an event or a
+  request body and there is no answer for a response, so the matrix is not the
+  place to prescribe one. Two sentences also ran together without a full stop.
+
+  Found by running the published package rather than the local build. The verdict
+  is the product in this package, so its prose is not cosmetic.
+
+- **The large-input test asserted a ten-second wall clock**, which stopped a
+  release on a loaded runner for reasons unrelated to the code. It measures a
+  complexity class, not a speed: the linear path takes about a sixth of a second
+  and the quadratic one took sixty-seven, so the bound is now thirty.
+
+### Changed
+
+- GitHub Actions bumped: checkout 4 to 7, setup-dotnet 4 to 6, upload-artifact 4
+  to 7, clearing the Node 20 deprecation warning on every run.
+
 ## [0.1.0-preview.5]
 
 ### Changed -- breaking
@@ -248,6 +273,7 @@ The first public preview: fourteen packages, published together.
   embedded symbols, SourceLink, Fantomas, and dependency rules enforced as build
   errors (`ETY0001`–`ETY0003`).
 
+[0.1.0-preview.6]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.6
 [0.1.0-preview.5]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.5
 [0.1.0-preview.4]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.3

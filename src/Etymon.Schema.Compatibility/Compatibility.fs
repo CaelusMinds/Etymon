@@ -12,10 +12,10 @@ open System
 /// </remarks>
 [<RequireQualifiedAccess>]
 type Direction =
-    /// New code reading events already written. The one you always need:
+    /// New code reading what was already written. The one you always need:
     /// losing it makes history unreadable.
     | Backward
-    /// Older deployed code reading events written by newer code. Matters during
+    /// Already-deployed code reading what newer code writes. Matters during
     /// a rollout, when two versions run against one log.
     | Forward
 
@@ -26,8 +26,8 @@ module Direction =
     /// <summary>What this direction means, as a phrase that fits in a sentence.</summary>
     let describe (direction: Direction) =
         match direction with
-        | Direction.Backward -> "new code reading events already written"
-        | Direction.Forward -> "already-deployed code reading events written by new code"
+        | Direction.Backward -> "new code reading what was already written"
+        | Direction.Forward -> "already-deployed code reading what new code writes"
 
 /// <summary>One thing that changed between two versions of an event shape.</summary>
 [<NoComparison>]
@@ -116,7 +116,7 @@ module Compatibility =
                                     $"the required field '%s{field.Name}' was removed"
                                     [
                                         Direction.Forward,
-                                        $"already-deployed code requires '%s{field.Name}' and new events will not carry it"
+                                        $"already-deployed code requires '%s{field.Name}' and what is written now will not carry it."
                                     ]
                             ]
                         else
@@ -138,10 +138,7 @@ module Compatibility =
                                     event
                                     (Some field.Name)
                                     $"the required field '%s{field.Name}' was added"
-                                    [
-                                        Direction.Backward,
-                                        $"events already written have no '%s{field.Name}', so an upcaster must supply one"
-                                    ]
+                                    [ Direction.Backward, $"what was already written has no '%s{field.Name}'." ]
                             ]
                         else
                             []
@@ -181,8 +178,8 @@ module Compatibility =
                                 (Some afterField.Name)
                                 $"the type of '%s{afterField.Name}' changed"
                                 [
-                                    Direction.Backward, "events already written hold the old type"
-                                    Direction.Forward, "already-deployed code expects the old type"
+                                    Direction.Backward, "what was already written holds the old type."
+                                    Direction.Forward, "already-deployed code expects the old type."
                                 ]
 
                         if beforeField.Required && not afterField.Required then
@@ -192,7 +189,7 @@ module Compatibility =
                                 $"'%s{afterField.Name}' stopped being required"
                                 [
                                     Direction.Forward,
-                                    $"already-deployed code requires '%s{afterField.Name}' and new events may omit it"
+                                    $"already-deployed code requires '%s{afterField.Name}' and what is written now may omit it."
                                 ]
 
                         if not beforeField.Required && afterField.Required then
@@ -201,8 +198,7 @@ module Compatibility =
                                 (Some afterField.Name)
                                 $"'%s{afterField.Name}' became required"
                                 [
-                                    Direction.Backward,
-                                    $"events already written may omit '%s{afterField.Name}', so an upcaster must supply one"
+                                    Direction.Backward, $"what was already written may omit '%s{afterField.Name}'."
                                 ]
 
                         if constraintsDiffer beforeField.Constraints afterField.Constraints then
@@ -217,9 +213,9 @@ module Compatibility =
                                 $"the rules on '%s{afterField.Name}' changed"
                                 [
                                     Direction.Backward,
-                                    "events already written may not satisfy the new rules, if they were narrowed"
+                                    "what was already written may not satisfy the new rules, if they were narrowed."
                                     Direction.Forward,
-                                    "already-deployed code may reject new events, if the rules were widened"
+                                    "already-deployed code may reject what is written now, if the rules were widened."
                                 ]
 
                         match beforeField.Type, afterField.Type with
@@ -238,7 +234,7 @@ module Compatibility =
                                     $"'%s{afterField.Name}' gained the case(s) %s{names}"
                                     [
                                         Direction.Forward,
-                                        "already-deployed code has no branch for a case it has never seen"
+                                        "already-deployed code has no branch for a case it has never seen."
                                     ]
 
                             if not (List.isEmpty lost) then
@@ -248,7 +244,10 @@ module Compatibility =
                                     event
                                     (Some afterField.Name)
                                     $"'%s{afterField.Name}' lost the case(s) %s{names}"
-                                    [ Direction.Backward, "events already written carry a case nothing reads now" ]
+                                    [
+                                        Direction.Backward,
+                                        "what was already written carries a case nothing reads now."
+                                    ]
                         | _ -> ()
                     ]
             )

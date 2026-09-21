@@ -69,13 +69,19 @@ let tests =
                         Expect.isTrue (breaksBackward changes) "events already written have no dueOn"
                         Expect.isFalse (breaksForward changes) "old code does not look for it"
 
-                        let reason =
-                            changes
-                            |> List.collect (fun c -> c.Breaks)
-                            |> List.map snd
-                            |> List.filter (fun r -> r.Contains "upcaster")
+                        // The matrix states the fact. What to do about it is the
+                        // policy's job -- an upcaster for an event or a request
+                        // body, nothing at all for a response -- so the advice
+                        // is not in here.
+                        let reasons = changes |> List.collect (fun c -> c.Breaks) |> List.map snd
 
-                        Expect.isNonEmpty reason "and it says an upcaster must supply one"
+                        Expect.isTrue
+                            (reasons |> List.exists (fun r -> r.Contains "already written"))
+                            "and it says what is already out there does not carry it"
+
+                        Expect.isFalse
+                            (reasons |> List.exists (fun r -> r.Contains "upcaster"))
+                            "without prescribing a fix that only one policy has"
                     }
 
                     test "a removed optional field breaks neither direction" {
@@ -306,7 +312,7 @@ let tests =
 
                         Expect.stringContains report "InvoiceRaised" "the event"
                         Expect.stringContains report "Backward" "the direction"
-                        Expect.stringContains report "events already written" "and what it means"
+                        Expect.stringContains report "already written" "and what it means"
                     }
 
                     test "nothing to report says so in a sentence" {
