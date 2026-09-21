@@ -4,4 +4,7 @@ open Expecto
 
 [<EntryPoint>]
 let main argv =
-    runTestsWithCLIArgs [] argv (testList "Etymon.Invariants" [ InvariantTests.tests; GenerateTests.tests ])
+    runTestsWithCLIArgs
+        []
+        argv
+        (testList "Etymon.Invariants" [ InvariantTests.tests; GenerateTests.tests; RoundTripProperties.tests ])

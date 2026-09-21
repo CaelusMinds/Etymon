@@ -4,6 +4,7 @@
     <Compile Include="Domain.fs" />
     <Compile Include="InvariantTests.fs" />
     <Compile Include="GenerateTests.fs" />
+    <Compile Include="RoundTripProperties.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

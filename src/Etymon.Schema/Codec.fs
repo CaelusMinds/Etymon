@@ -1,6 +1,7 @@
 namespace Etymon
 
 open System
+open System.Buffers
 open System.Text.Json
 
 /// <summary>
@@ -131,12 +132,28 @@ module internal Codec =
         | _ -> None
 
     /// Writes a value to UTF-8 bytes using a schema's writer and the given options.
-    let toUtf8With (options: JsonWriterOptions) (write: Utf8JsonWriter -> 'T -> unit) (value: 'T) =
-        use stream = new IO.MemoryStream()
-        use writer = new Utf8JsonWriter(stream, options)
+    /// <summary>
+    /// Writes a value and hands back the buffer it was written into.
+    /// </summary>
+    /// <remarks>
+    /// An <c>ArrayBufferWriter</c> rather than a <c>MemoryStream</c>, because
+    /// <c>Utf8JsonWriter</c> takes an <c>IBufferWriter</c> directly. Going
+    /// through a stream meant the stream's buffer, the writer's buffer, and a
+    /// copy of the whole payload out of <c>ToArray</c> before anything could
+    /// look at it. The caller decides what to copy, once.
+    /// </remarks>
+    let internal writeToBuffer (options: JsonWriterOptions) (write: Utf8JsonWriter -> 'T -> unit) (value: 'T) =
+        // 256 bytes covers a typical record without growing. Growing is a
+        // doubling copy, so the starting size is worth choosing rather than
+        // leaving at the default of 0.
+        let buffer = ArrayBufferWriter<byte>(256)
+        use writer = new Utf8JsonWriter(buffer, options)
         write writer value
         writer.Flush()
-        stream.ToArray()
+        buffer
+
+    let toUtf8With (options: JsonWriterOptions) (write: Utf8JsonWriter -> 'T -> unit) (value: 'T) =
+        (writeToBuffer options write value).WrittenSpan.ToArray()
 
     /// The writer options Etymon uses unless told otherwise.
     ///
@@ -153,3 +170,7 @@ module internal Codec =
     /// Writes a value to UTF-8 bytes using a schema's writer.
     let toUtf8 (write: Utf8JsonWriter -> 'T -> unit) (indented: bool) (value: 'T) =
         toUtf8With (if indented then indentedOptions else defaultOptions) write value
+
+    /// Writes a value straight to a string, without the byte array in between.
+    let toText (options: JsonWriterOptions) (write: Utf8JsonWriter -> 'T -> unit) (value: 'T) =
+        Text.Encoding.UTF8.GetString((writeToBuffer options write value).WrittenSpan)

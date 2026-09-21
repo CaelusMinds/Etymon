@@ -423,13 +423,20 @@ module JsonGen =
             }
 
         | SRef name ->
-            // A recursive schema has no fixed point a generator can reach without
-            // a depth budget, and Etymon does not carry one here.
+            // A recursive schema has no fixed point a generator can reach
+            // without a depth budget, and Etymon does not carry one here. Doing
+            // it properly means bounding recursion by FsCheck's size and
+            // emptying collections when the budget runs out -- worth building,
+            // not yet built.
+            //
+            // The message says what a caller can actually do. It used to say
+            // "supply one explicitly for this type", which reads like there is
+            // somewhere to supply it; there is not.
             raise (
                 GenerationFailed(
                     name,
                     0,
-                    $"Cannot generate a value for the recursive schema '%s{name}': a generator would not terminate. Supply one explicitly for this type."
+                    $"Cannot generate values for the recursive schema '%s{name}': generating one would not terminate, because the type contains itself and Etymon has no depth budget to stop it. Write an FsCheck generator for this type by hand and use it wherever you would have used Generate.valid; the properties you are checking do not care where the values came from."
                 )
             )
 

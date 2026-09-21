@@ -378,14 +378,14 @@ module Schema =
     /// Schema.toJson personSchema person // """{"name":"Ada","age":36}"""
     /// </code></example>
     let toJson (schema: Schema<'T>) (value: 'T) =
-        Encoding.UTF8.GetString(toJsonUtf8 schema value)
+        Codec.toText Codec.defaultOptions schema.Write value
 
     /// <summary>Encodes a value as indented JSON, for something a person will read.</summary>
     /// <example><code lang="fsharp">
     /// Schema.toJsonIndented personSchema person
     /// </code></example>
     let toJsonIndented (schema: Schema<'T>) (value: 'T) =
-        Encoding.UTF8.GetString(Codec.toUtf8 schema.Write true value)
+        Codec.toText Codec.indentedOptions schema.Write value
 
     /// <summary>
     /// Encodes a value with writer options of your choosing.
@@ -402,7 +402,7 @@ module Schema =
     /// Schema.toJsonWith relaxed personSchema person
     /// </code></example>
     let toJsonWith (options: JsonWriterOptions) (schema: Schema<'T>) (value: 'T) =
-        Encoding.UTF8.GetString(Codec.toUtf8With options schema.Write value)
+        Codec.toText options schema.Write value
 
     /// <summary>Decodes an already-parsed element, in a given mode.</summary>
     /// <example><code lang="fsharp">
