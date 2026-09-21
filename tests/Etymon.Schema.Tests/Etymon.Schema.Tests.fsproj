@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="Domain.fs" />
     <Compile Include="SchemaTests.fs" />
+    <Compile Include="WireFieldTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

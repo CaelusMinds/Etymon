@@ -33,8 +33,8 @@ module Direction =
 [<NoComparison>]
 type ShapeChange =
     {
-        /// The event type the change is about.
-        Event: string
+        /// The name of the shape the change is about.
+        Shape: string
         /// The field, where the change is about one.
         Field: string option
         /// What changed, in a sentence.
@@ -54,8 +54,8 @@ type ShapeChange =
 [<NoComparison>]
 type Rename =
     {
-        /// The event type the rename happened in.
-        Event: string
+        /// The name of the shape the rename happened in.
+        Shape: string
         /// What the field used to be called.
         From: string
         /// What it is called now.
@@ -69,7 +69,7 @@ module Compatibility =
     let private renamedTo (event: string) (from: string) (renames: Rename list) =
         renames
         |> List.tryFind (fun r ->
-            String.Equals(r.Event, event, StringComparison.Ordinal)
+            String.Equals(r.Shape, event, StringComparison.Ordinal)
             && String.Equals(r.From, from, StringComparison.Ordinal)
         )
         |> Option.map (fun r -> r.To)
@@ -77,13 +77,13 @@ module Compatibility =
     let private renamedFrom (event: string) (to': string) (renames: Rename list) =
         renames
         |> List.exists (fun r ->
-            String.Equals(r.Event, event, StringComparison.Ordinal)
+            String.Equals(r.Shape, event, StringComparison.Ordinal)
             && String.Equals(r.To, to', StringComparison.Ordinal)
         )
 
     let private change event field description breaks =
         {
-            Event = event
+            Shape = event
             Field = field
             Description = description
             Breaks = breaks
@@ -96,14 +96,14 @@ module Compatibility =
     /// are therefore both reported, in the direction each could break.
     let private constraintsDiffer (before: Constraint list) (after: Constraint list) = before <> after
 
-    let private compareFields (event: string) (renames: Rename list) (before: EventShape) (after: EventShape) =
+    let private compareFields (event: string) (renames: Rename list) (before: Shape) (after: Shape) =
         let removed =
             before.Fields
             |> List.collect (fun field ->
                 match renamedTo event field.Name renames with
                 | Some _ -> []
                 | None ->
-                    match EventShape.tryField field.Name after with
+                    match Shape.tryField field.Name after with
                     | Some _ -> []
                     | None ->
                         if field.Required then
@@ -129,7 +129,7 @@ module Compatibility =
                 if renamedFrom event field.Name renames then
                     []
                 else
-                    match EventShape.tryField field.Name before with
+                    match Shape.tryField field.Name before with
                     | Some _ -> []
                     | None ->
                         if field.Required then
@@ -154,12 +154,12 @@ module Compatibility =
                     match
                         renames
                         |> List.tryFind (fun r ->
-                            String.Equals(r.Event, event, StringComparison.Ordinal)
+                            String.Equals(r.Shape, event, StringComparison.Ordinal)
                             && String.Equals(r.To, afterField.Name, StringComparison.Ordinal)
                         )
                     with
-                    | Some rename -> EventShape.tryField rename.From before
-                    | None -> EventShape.tryField afterField.Name before
+                    | Some rename -> Shape.tryField rename.From before
+                    | None -> Shape.tryField afterField.Name before
 
                 match beforeField with
                 | None -> []
@@ -262,7 +262,7 @@ module Compatibility =
     /// <example><code lang="fsharp">
     /// Compatibility.betweenShapes [] raisedV1 raisedV2
     /// </code></example>
-    let betweenShapes (renames: Rename list) (before: EventShape) (after: EventShape) =
+    let betweenShapes (renames: Rename list) (before: Shape) (after: Shape) =
         compareFields after.Name renames before after
 
     /// <summary>
@@ -278,10 +278,10 @@ module Compatibility =
     /// <example><code lang="fsharp">
     /// Compatibility.between [] committedSnapshot currentSnapshot
     /// </code></example>
-    let between (renames: Rename list) (before: EventSnapshot) (after: EventSnapshot) =
-        EventSnapshot.names after
+    let between (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) =
+        ShapeSnapshot.names after
         |> List.collect (fun name ->
-            match EventSnapshot.tryLatest name before, EventSnapshot.tryLatest name after with
+            match ShapeSnapshot.tryLatest name before, ShapeSnapshot.tryLatest name after with
             | Some previous, Some current when previous.Version <> current.Version ->
                 betweenShapes renames previous current
             | Some previous, Some current -> betweenShapes renames previous current
@@ -313,7 +313,7 @@ module Compatibility =
     /// </code></example>
     let report (changes: ShapeChange list) =
         if List.isEmpty changes then
-            "No event shape changed in a way that affects reading."
+            "No shape changed in a way that affects reading."
         else
             let lines =
                 changes
@@ -329,7 +329,7 @@ module Compatibility =
                             $"    %s{label} ({Direction.describe direction}): %s{why}."
                         )
 
-                    let heading = $"  %s{c.Event}: %s{c.Description}."
+                    let heading = $"  %s{c.Shape}: %s{c.Description}."
 
                     String.Join(Environment.NewLine, heading :: breaks)
                 )

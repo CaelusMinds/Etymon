@@ -4,7 +4,7 @@
 /// individually rather than through a few composite cases. A wrong verdict here
 /// is worse than no verdict: somebody ships a change because a tool said it was
 /// safe, and the log stops being readable.
-module Etymon.Schema.Events.Tests.CompatibilityTests
+module Etymon.Schema.Compatibility.Tests.CompatibilityTests
 
 open Expecto
 open Etymon
@@ -13,7 +13,7 @@ open Etymon
 // Shapes built by hand, so a test says exactly what changed.
 // ---------------------------------------------------------------------------
 
-let private field name t required constraints : EventField =
+let private field name t required constraints : ShapeField =
     {
         Name = name
         Type = t
@@ -21,7 +21,7 @@ let private field name t required constraints : EventField =
         Constraints = constraints
     }
 
-let private shape version fields : EventShape =
+let private shape version fields : Shape =
     {
         Name = "InvoiceRaised"
         Version = version
@@ -159,12 +159,12 @@ let tests =
                 "a rename is declared, never detected"
                 [
                     test "an undeclared removal and addition is refused, not guessed" {
-                        let before = EventSnapshot.of' [ v1 ]
+                        let before = ShapeSnapshot.of' [ v1 ]
 
                         let after =
-                            EventSnapshot.of' [ shape 2 [ field "id" text true []; field "amount" number true [] ] ]
+                            ShapeSnapshot.of' [ shape 2 [ field "id" text true []; field "amount" number true [] ] ]
 
-                        match Upcasters.undeclaredRenames [] before after with
+                        match Events.undeclaredRenames [] before after with
                         | [ problem ] ->
                             Expect.stringContains problem.Message "'total'" "it names what went"
                             Expect.stringContains problem.Message "'amount'" "and what arrived"
@@ -179,28 +179,28 @@ let tests =
                     }
 
                     test "a declared rename settles it" {
-                        let before = EventSnapshot.of' [ v1 ]
+                        let before = ShapeSnapshot.of' [ v1 ]
 
                         let after =
-                            EventSnapshot.of' [ shape 2 [ field "id" text true []; field "amount" number true [] ] ]
+                            ShapeSnapshot.of' [ shape 2 [ field "id" text true []; field "amount" number true [] ] ]
 
                         let renames =
                             [
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     From = "total"
                                     To = "amount"
                                 }
                             ]
 
-                        Expect.isEmpty (Upcasters.undeclaredRenames renames before after) "nothing left ambiguous"
+                        Expect.isEmpty (Events.undeclaredRenames renames before after) "nothing left ambiguous"
                     }
 
                     test "a declared rename is not reported as a removal and an addition" {
                         let renames =
                             [
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     From = "total"
                                     To = "amount"
                                 }
@@ -213,10 +213,10 @@ let tests =
                     }
 
                     test "a removal on its own is not ambiguous" {
-                        let before = EventSnapshot.of' [ v1 ]
-                        let after = EventSnapshot.of' [ shape 2 [ field "id" text true [] ] ]
+                        let before = ShapeSnapshot.of' [ v1 ]
+                        let after = ShapeSnapshot.of' [ shape 2 [ field "id" text true [] ] ]
 
-                        Expect.isEmpty (Upcasters.undeclaredRenames [] before after) "a removal is a removal"
+                        Expect.isEmpty (Events.undeclaredRenames [] before after) "a removal is a removal"
                     }
                 ]
 
@@ -225,18 +225,18 @@ let tests =
                 [
                     test "a gap in the chain is named by version" {
                         let snapshot =
-                            EventSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields; shape 3 v1.Fields ]
+                            ShapeSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields; shape 3 v1.Fields ]
 
                         let upcasters =
                             [
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     Reads = 2
                                     Produces = 3
                                 }
                             ]
 
-                        match Upcasters.unreachable upcasters snapshot with
+                        match Events.unreachable upcasters snapshot with
                         | [ problem ] ->
                             Expect.stringContains problem.Message "v1 and v2 and v3" "it lists what is stored"
                             Expect.stringContains problem.Message "current shape is v3" "and what is current"
@@ -247,50 +247,50 @@ let tests =
 
                     test "a complete chain is reachable through several steps" {
                         let snapshot =
-                            EventSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields; shape 3 v1.Fields ]
+                            ShapeSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields; shape 3 v1.Fields ]
 
                         let upcasters =
                             [
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     Reads = 1
                                     Produces = 2
                                 }
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     Reads = 2
                                     Produces = 3
                                 }
                             ]
 
-                        Expect.isEmpty (Upcasters.unreachable upcasters snapshot) "v1 reaches v3 by way of v2"
+                        Expect.isEmpty (Events.unreachable upcasters snapshot) "v1 reaches v3 by way of v2"
                     }
 
                     test "a chain that skips a version is still a chain" {
-                        let snapshot = EventSnapshot.of' [ shape 1 v1.Fields; shape 3 v1.Fields ]
+                        let snapshot = ShapeSnapshot.of' [ shape 1 v1.Fields; shape 3 v1.Fields ]
 
                         let upcasters =
                             [
                                 {
-                                    Event = "InvoiceRaised"
+                                    Shape = "InvoiceRaised"
                                     Reads = 1
                                     Produces = 3
                                 }
                             ]
 
-                        Expect.isEmpty (Upcasters.unreachable upcasters snapshot) "one hop is enough"
+                        Expect.isEmpty (Events.unreachable upcasters snapshot) "one hop is enough"
                     }
 
                     test "one version needs no upcasters at all" {
                         Expect.isEmpty
-                            (Upcasters.unreachable [] (EventSnapshot.of' [ shape 1 v1.Fields ]))
+                            (Events.unreachable [] (ShapeSnapshot.of' [ shape 1 v1.Fields ]))
                             "nothing older exists"
                     }
 
                     test "no upcasters at all is reported, not assumed fine" {
-                        let snapshot = EventSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields ]
+                        let snapshot = ShapeSnapshot.of' [ shape 1 v1.Fields; shape 2 v1.Fields ]
 
-                        match Upcasters.unreachable [] snapshot with
+                        match Events.unreachable [] snapshot with
                         | [ problem ] ->
                             Expect.stringContains problem.Message "No upcasters are declared" "said plainly"
                         | other -> failtestf "expected one gap, got %A" other
@@ -312,7 +312,7 @@ let tests =
                     test "nothing to report says so in a sentence" {
                         Expect.stringContains
                             (Compatibility.report [])
-                            "No event shape changed"
+                            "No shape changed"
                             "rather than printing nothing at all"
                     }
                 ]

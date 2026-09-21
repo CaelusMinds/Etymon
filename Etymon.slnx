@@ -10,7 +10,7 @@
     <Project Path="src/Etymon.Core/Etymon.Core.fsproj" />
     <Project Path="src/Etymon.Invariants.FsCheck/Etymon.Invariants.FsCheck.fsproj" />
     <Project Path="src/Etymon.Invariants/Etymon.Invariants.fsproj" />
-    <Project Path="src/Etymon.Schema.Events/Etymon.Schema.Events.fsproj" />
+    <Project Path="src/Etymon.Schema.Compatibility/Etymon.Schema.Compatibility.fsproj" />
     <Project Path="src/Etymon.Schema.Sql/Etymon.Schema.Sql.fsproj" />
     <Project Path="src/Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
     <Project Path="src/Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
@@ -30,7 +30,7 @@
     <Project Path="tests/Etymon.Core.Tests/Etymon.Core.Tests.fsproj" />
     <Project Path="tests/Etymon.Invariants.Tests/Etymon.Invariants.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.OpenApi.Tests/Etymon.Schema.OpenApi.Tests.fsproj" />
-    <Project Path="tests/Etymon.Schema.Events.Tests/Etymon.Schema.Events.Tests.fsproj" />
+    <Project Path="tests/Etymon.Schema.Compatibility.Tests/Etymon.Schema.Compatibility.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.Sql.Tests/Etymon.Schema.Sql.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.Tests/Etymon.Schema.Tests.fsproj" />
     <Project Path="tests/Etymon.Schema.TypeScript.Tests/Etymon.Schema.TypeScript.Tests.fsproj" />

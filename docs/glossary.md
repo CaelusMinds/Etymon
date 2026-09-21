@@ -71,12 +71,32 @@ suite free of a driver.
 
 ---
 
-## Event shape
+## Shape
 
-The field structure of one event type at one version: which fields exist, their
+The field structure of one named thing at one version: which fields exist, their
 types, which are optional.
 
-Distinct from the **event type** (the name) and an **event instance** (a row).
+An event type, a request body, a response body — the machinery is the same, and
+the **policy** on top is what makes it mean something.
+
+Distinct from the **type** (the name) and an **instance** (a row, or a payload
+on the wire).
+
+---
+
+## Policy
+
+A set of rules applied to the compatibility matrix, deciding which direction
+matters and what can be done about a break. There are two, over one matrix:
+
+- **`Events`** — the old shape is in your database, you own the reader, and an
+  upcaster always rescues it.
+- **`Wire`** — the old shape is in somebody else's code. Requests can be rescued
+  by an upcaster; **responses cannot be rescued at all**, because the code that
+  breaks is not code you ship.
+
+Two copies of a compatibility matrix is how the two quietly stop agreeing, so
+there is one definition and both policies read it.
 
 ---
 
@@ -108,16 +128,28 @@ not a migration and must not be modelled as one.
 Compatibility is directional, and both directions matter. **Never write
 "compatible" unqualified.**
 
-**Backward compatible** — new code can read events already written. This is the
-one you always need; losing it makes history unreadable.
+**Backward compatible** — new code can read payloads already written. This is
+the one you always need; losing it makes history unreadable.
 
-**Forward compatible** — older deployed code can read events written by newer
-code. This matters during a rollout, when two versions run against one log.
+**Forward compatible** — already-deployed code can read payloads written by
+newer code. This matters during a rollout, when two versions run against one
+log — and on the wire, where the already-deployed code belongs to somebody else
+and you cannot update it at all.
 
 | | reads what | breaks when |
 | --- | --- | --- |
-| Backward | new code ← old events | you add a required field with no upcaster |
-| Forward | old code ← new events | you add a union case old code cannot match |
+| Backward | new code ← old payloads | you add a required field with no upcaster |
+| Forward | old code ← new payloads | you add a union case old code cannot match |
+
+**In anything a developer reads, name the audience rather than the direction.**
+"Forward" and "backward" are the two words people reliably get the wrong way
+round. Write *"clients already written (they read what you send)"*, which cannot
+be misread.
+
+Compatibility now has an **audience** as well as a direction, and the audience
+decides whether a break can be fixed at all: a backward break in your own event
+log is an upcaster you write, while a forward break on the wire is code you do
+not ship.
 
 ---
 

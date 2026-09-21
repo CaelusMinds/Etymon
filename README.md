@@ -24,10 +24,10 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fifteen packages are built, and the fourteen with
-> code in them are tested — **837 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **851 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Published to nuget.org as
-> `0.1.0-preview.4`; the API can still change, and a preview is where that should
+> `0.1.0-preview.5`; the API can still change, and a preview is where that should
 > happen.
 
 **New here?** [**Why Etymon**](docs/why-etymon.md) is the case for it: the same
@@ -46,7 +46,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document | Core |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
 | **Etymon.Schema.TypeScript** | TypeScript declarations from the same schemas. Types only | Core, Schema |
-| **Etymon.Schema.Events** | Event shapes derived from a Schema, committed as a snapshot and compared for compatibility in both directions. Never rewrites an event | Core, Schema |
+| **Etymon.Schema.Compatibility** | Shape snapshots and one compatibility matrix, with two policies over it: event logs and wire contracts. Never rewrites what already exists | Core, Schema |
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
 | **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
 | **Etymon.Config** | Configuration through a schema, reporting every problem at once with what was expected and which source supplied it | Core, Base, Schema |
@@ -83,9 +83,13 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 - **"I want typed endpoints without Giraffe or any other F# web framework."**
   → `Etymon.Api` + `Etymon.Api.AspNetCore`. ASP.NET Core is the floor — Etymon
   is not a web server and will not become one.
-- **"My events are the schema, and my tables never change."** → `Etymon.Schema.Events`.
+- **"My events are the schema, and my tables never change."** → `Etymon.Schema.Compatibility`, policy `Events`.
   It compares event shapes across versions and refuses changes that would strand
   events already written. It never opens a connection and never rewrites an event.
+- **"I need to know if changing this DTO breaks a client."** →
+  `Etymon.Schema.Compatibility`, policy `Wire`. Requests can be rescued with an
+  upcaster; response breaks cannot be fixed by anything you ship, and it says so
+  before the change goes out.
 - **"I only want to call someone else's API, or generate types for a frontend."**
   → `Etymon.Api` + `Etymon.Api.Client`, or `Etymon.Schema.TypeScript`. Neither
   needs a server at all.
@@ -269,7 +273,7 @@ To use it, take the meta-package or just the part you need. Previews are not
 restored unless you ask for the version, so name it:
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.4" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.5" />
 ```
 
 To build the repository instead:

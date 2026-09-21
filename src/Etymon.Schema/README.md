@@ -141,6 +141,45 @@ Schema.fromJsonWith DecodeMode.Coercing Schema.int "\"8080\""  // Ok 8080
 `Etymon.Config` reads in coercing mode. Coercion never makes nonsense
 acceptable: `"eighty"` is still not a number.
 
+## Adopting this over records that came off the wire
+
+If your request types are currently bound by `System.Text.Json`, they are
+nullable throughout — `string | null`, `Nullable<int>`, `'a[] | null` — because
+a decoder that cannot refuse has to put *something* in every field. A `Schema`
+speaks in `option`, so every field crosses.
+
+**One rule makes the conversion mechanical: take the record at its word.** A
+field the record declares nullable is optional in the `Schema`; a field it
+declares non-nullable is `Schema.required`.
+
+Without that rule the first question on every single type is "should this be
+required?", the answer is a judgement each time, and it drifts across a
+codebase. With it, the conversion is transcription.
+
+`WireField` is the crossing, so `Option.ofObj` does not appear at every field:
+
+```fsharp
+let createBill =
+    Schema.object "CreateBillRequest" {
+        let! billNumber = WireField.text "billNumber" (fun r -> r.BillNumber)
+        and! vendorId   = WireField.guid "vendorId" (fun r -> r.VendorId)
+        and! lines      = WireField.array "lines" lineSchema (fun r -> r.Lines)
+        return { ... }
+    }
+```
+
+**`WireField.text` is not a shorter spelling of `Schema.optional`.** They say
+different things: `Schema.optional` says *this key may be absent*, which is a
+statement about the contract; `WireField.text` says *this field is nullable
+because of how it arrived*, which is a statement about the record, and a
+temporary one. They are spelled the same today and they are not the same idea —
+so when those records stop being nullable, `WireField` is the list of everywhere
+it mattered.
+
+Constraints still apply through the crossing: `WireField.constrainedText` takes a
+`ConstraintCheck` and enforces it, which is the point of going through a `Schema`
+at all.
+
 ## Design notes
 
 **Encoding cannot fail; decoding accumulates.** A value of type `'T` already is

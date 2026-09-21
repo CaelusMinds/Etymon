@@ -1,7 +1,7 @@
 namespace Etymon
 
 /// <summary>
-/// Reading and writing an <see cref="T:Etymon.EventSnapshot"/> as JSON.
+/// Reading and writing an <see cref="T:Etymon.ShapeSnapshot"/> as JSON.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,7 +20,7 @@ namespace Etymon
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]
-module EventSnapshots =
+module ShapeSnapshots =
 
     /// The format version of the snapshot file itself, so that a future change
     /// to the format can be recognised rather than guessed at.
@@ -103,8 +103,8 @@ module EventSnapshots =
                     ]
             )
 
-    let private fieldSchema: Schema<EventField> =
-        Schema.object "EventField" {
+    let private fieldSchema: Schema<ShapeField> =
+        Schema.object "ShapeField" {
             let! name = Schema.required "name" Schema.string (fun f -> f.Name)
             and! fieldType = Schema.required "type" fieldTypeSchema (fun f -> f.Type)
             and! required = Schema.required "required" Schema.bool (fun f -> f.Required)
@@ -121,8 +121,8 @@ module EventSnapshots =
                 }
         }
 
-    let private shapeSchema: Schema<EventShape> =
-        Schema.object "EventShape" {
+    let private shapeSchema: Schema<Shape> =
+        Schema.object "Shape" {
             let! name = Schema.required "name" Schema.string (fun s -> s.Name)
             and! version = Schema.required "version" Schema.int (fun s -> s.Version)
             and! fields = Schema.required "fields" (Schema.list fieldSchema) (fun s -> s.Fields)
@@ -140,11 +140,11 @@ module EventSnapshots =
     /// </summary>
     /// <remarks>
     /// Public so that the format is documentable by the same machinery that
-    /// documents everything else: <c>OpenApi.toJsonSchemaText EventSnapshots.schema</c>
+    /// documents everything else: <c>OpenApi.toJsonSchemaText ShapeSnapshots.schema</c>
     /// prints it.
     /// </remarks>
-    let schema: Schema<EventSnapshot> =
-        Schema.object "EventSnapshot" {
+    let schema: Schema<ShapeSnapshot> =
+        Schema.object "ShapeSnapshot" {
             let! _ =
                 Schema.defaulted "formatVersion" Schema.int FormatVersion (fun _ -> FormatVersion)
 
@@ -159,16 +159,16 @@ module EventSnapshots =
     /// reordering noise.
     /// </remarks>
     /// <example><code lang="fsharp">
-    /// File.WriteAllText("events.snapshot.json", EventSnapshots.toJson snapshot)
+    /// File.WriteAllText("events.snapshot.json", ShapeSnapshots.toJson snapshot)
     /// </code></example>
-    let toJson (snapshot: EventSnapshot) =
-        Schema.toJsonIndented schema (EventSnapshot.of' snapshot.Shapes)
+    let toJson (snapshot: ShapeSnapshot) =
+        Schema.toJsonIndented schema (ShapeSnapshot.of' snapshot.Shapes)
 
     /// <summary>A snapshot read back, or every reason the file could not be read.</summary>
     /// <example><code lang="fsharp">
-    /// match EventSnapshots.fromJson text with
+    /// match ShapeSnapshots.fromJson text with
     /// | Ok snapshot -> ...
     /// | Error errors -> eprintfn "%s" (ValidationErrors.format errors)
     /// // shapes[2].fields[0].name: is required
     /// </code></example>
-    let fromJson (text: string) : Validation<EventSnapshot> = Schema.fromJson schema text
+    let fromJson (text: string) : Validation<ShapeSnapshot> = Schema.fromJson schema text

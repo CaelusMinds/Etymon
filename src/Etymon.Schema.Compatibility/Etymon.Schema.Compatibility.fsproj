@@ -7,10 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="EventShape.fs" />
+    <Compile Include="Shape.fs" />
     <Compile Include="Snapshots.fs" />
     <Compile Include="Compatibility.fs" />
-    <Compile Include="Upcasters.fs" />
+    <Compile Include="Events.fs" />
+    <Compile Include="Wire.fs" />
   </ItemGroup>
 
   <ItemGroup>

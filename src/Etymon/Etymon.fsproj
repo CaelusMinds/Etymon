@@ -15,7 +15,7 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <IsAotCompatible>false</IsAotCompatible>
 
-    <EtymonAllowedReferences>Etymon.Core;Etymon.Base;Etymon.Schema;Etymon.Schema.OpenApi;Etymon.Schema.TypeScript;Etymon.Schema.Events;Etymon.Invariants;Etymon.Config;Etymon.Schema.Sql;Etymon.Api;Etymon.Api.Client</EtymonAllowedReferences>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Base;Etymon.Schema;Etymon.Schema.OpenApi;Etymon.Schema.TypeScript;Etymon.Schema.Compatibility;Etymon.Invariants;Etymon.Config;Etymon.Schema.Sql;Etymon.Api;Etymon.Api.Client</EtymonAllowedReferences>
   </PropertyGroup>
 
   <!-- The compiler needs an input even when nothing is shipped. -->
@@ -29,7 +29,7 @@
     <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
     <ProjectReference Include="../Etymon.Schema.OpenApi/Etymon.Schema.OpenApi.fsproj" />
     <ProjectReference Include="../Etymon.Schema.TypeScript/Etymon.Schema.TypeScript.fsproj" />
-    <ProjectReference Include="../Etymon.Schema.Events/Etymon.Schema.Events.fsproj" />
+    <ProjectReference Include="../Etymon.Schema.Compatibility/Etymon.Schema.Compatibility.fsproj" />
     <ProjectReference Include="../Etymon.Invariants/Etymon.Invariants.fsproj" />
     <ProjectReference Include="../Etymon.Config/Etymon.Config.fsproj" />
     <ProjectReference Include="../Etymon.Schema.Sql/Etymon.Schema.Sql.fsproj" />

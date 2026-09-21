@@ -13,6 +13,61 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.5]
+
+### Changed -- breaking
+
+- **`Etymon.Schema.Events` is now `Etymon.Schema.Compatibility`,** and the
+  event-specific types lose the word: `EventShape` is `Shape`, `EventField` is
+  `ShapeField`, `EventSnapshot` is `ShapeSnapshot`, and the `Upcasters` module is
+  `Events`.
+
+  What shipped in preview.4 turned out to be one use of a more general
+  capability. Strip "events" out of "is this change safe against the data already
+  written?" and nothing breaks: a shape snapshot, a diff, and a compatibility
+  matrix mention no storage at all. What is event-specific is the policy wrapped
+  around them.
+
+  A second policy has now appeared over the identical matrix, so the package is
+  named for the capability and the two uses are policies inside it. The matrix
+  has exactly one definition and both read it -- two copies of a compatibility
+  table is how the two quietly stop agreeing.
+
+  `Etymon.Schema.Events` stops at `0.1.0-preview.4`. The event policy's own rules
+  are unchanged.
+
+### Added
+
+- **The `Wire` policy: wire contracts.** A DTO's old shape sits in somebody
+  else's code, not in your database, so what can be done about a break depends
+  on which way it travels.
+
+  Requests are backward compatibility and the event answer applies: write an
+  upcaster. **Responses are forward compatibility and cannot be rescued at all**,
+  because the code that would run an upcaster is not code you ship -- the only
+  answers are do not make the change, or version the endpoint. The package offers
+  no hook for a response fix, because a hook that cannot help suggests the
+  problem has been handled.
+
+  Verdicts name the audience rather than the direction, since "forward" and
+  "backward" are the two words people reliably get the wrong way round.
+
+- **`WireField` in `Etymon.Schema`.** A record deserialised by System.Text.Json
+  is nullable throughout, a Schema speaks in `option`, and every field crosses.
+  The first real adoption wrote this module for roughly sixty fields, and every
+  consumer arriving from System.Text.Json would write it again.
+
+  It is not a shorter spelling of `Schema.optional`. That says *this key may be
+  absent*, about the contract; `WireField.text` says *this field is nullable
+  because of how it arrived*, about the record, and temporarily. When those
+  records stop being nullable, `WireField` is the list of everywhere it mattered.
+
+- **The adoption rule, written down** in the `Etymon.Schema` README: a field the
+  record declares nullable is optional in the Schema, a field it declares
+  non-nullable is `Schema.required`. Take the record at its word. Without it the
+  first question on every type is "should this be required?" and the answer
+  drifts across a codebase.
+
 ## [0.1.0-preview.4]
 
 ### Changed -- breaking
@@ -37,7 +92,7 @@ that moves quietly is worse than one that moves.
 
 ### Added
 
-- **`Etymon.Schema.Events`.** In an event-sourced system the tables barely
+- **`Etymon.Schema.Compatibility`.** In an event-sourced system the tables barely
   change; what changes is what is written inside the payload, and no migration
   tool sees it because no column moved. This derives an event shape from a
   Schema, commits the set as a snapshot, and compares two snapshots for
@@ -193,6 +248,7 @@ The first public preview: fourteen packages, published together.
   embedded symbols, SourceLink, Fantomas, and dependency rules enforced as build
   errors (`ETY0001`–`ETY0003`).
 
+[0.1.0-preview.5]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.5
 [0.1.0-preview.4]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.2

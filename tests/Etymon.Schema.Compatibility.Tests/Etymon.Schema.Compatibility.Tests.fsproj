@@ -3,11 +3,12 @@
   <ItemGroup>
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="CompatibilityTests.fs" />
+    <Compile Include="WireTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Etymon.Schema.Events/Etymon.Schema.Events.fsproj" />
+    <ProjectReference Include="../../src/Etymon.Schema.Compatibility/Etymon.Schema.Compatibility.fsproj" />
   </ItemGroup>
 
 </Project>

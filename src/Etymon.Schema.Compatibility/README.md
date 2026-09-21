@@ -1,11 +1,29 @@
-# Etymon.Schema.Events
+# Etymon.Schema.Compatibility
 
-**Is this change safe against the events already written?**
+**Is this change safe against the payloads that already exist?**
 
 Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
 `Etymon.Core` and `Etymon.Schema`, and on nothing else.
 
-## The problem
+## One matrix, two policies
+
+Underneath is a capability that mentions no storage at all: a shape snapshot
+committed to the repository, a diff between two snapshots, and a compatibility
+matrix reported in both directions. On top of it sit two policies, because the
+same change means different things depending on where the old shape lives.
+
+| | `Events` | `Wire` |
+| --- | --- | --- |
+| The old shape lives in | your database | somebody else's code |
+| Direction that matters | backward | backward for requests, forward for responses |
+| The fix | an upcaster | an upcaster for requests; **nothing** for responses |
+| Can you count what is affected | yes — query the log | no |
+
+**The matrix has exactly one definition and both policies read it.** Two copies
+of a compatibility table is how the two quietly stop agreeing, and a
+disagreement there is one nobody notices until it matters.
+
+## The problem it started from
 
 In an event-sourced system the tables barely change. The event table has the
 columns it will always have, and no migration tool has anything to say — because
@@ -17,8 +35,12 @@ to read two shapes, and nothing checks that it can.
 
 Event sourcing moves the schema off the columns and into the payload. It is
 still schema, and it still wants deriving — which is why this sits beside
-`Etymon.Schema.Sql` and `Etymon.Schema.OpenApi` rather than inside a migrations
-tool. It describes shape; it does not describe a change to a database.
+`Etymon.Schema.Sql` and `Etymon.Schema.OpenApi`. It describes shape; it does not
+describe a change to a database.
+
+The wire policy is the same observation about a different boundary: an API's
+request and response bodies are shapes too, and the ones already in clients'
+code cannot be rewritten either.
 
 ## The hard rule
 
@@ -35,10 +57,10 @@ in the system.
 
 ```fsharp
 // A shape, derived from the Schema your codec is built from.
-let raisedV2 = EventShape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
+let raisedV2 = Shape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
 
 // A snapshot, committed to the repository.
-File.WriteAllText("events.snapshot.json", EventSnapshots.toJson (EventSnapshot.of' shapes))
+File.WriteAllText("events.snapshot.json", ShapeSnapshots.toJson (ShapeSnapshot.of' shapes))
 
 // Two snapshots in, verdicts out. Never a database.
 let changes = Compatibility.between renames previousSnapshot currentSnapshot
@@ -106,14 +128,63 @@ upcasters reach the current one?
 get?" is a business judgement. The package demands one and proves the chain is
 complete, which is all of what is derivable and most of the value.
 
+## The wire policy: responses are the ones that cannot be rescued
+
+An event's old shape sits in your database, so an upcaster can always rescue it.
+A DTO's old shape sits in somebody else's code, and whether it can be rescued
+depends entirely on which way it travels.
+
+**Requests** — old clients send old bodies and you read them. Backward
+compatibility, and the event policy's answer applies almost unchanged: write an
+upcaster.
+
+**Responses** — you send new bodies and their code reads them. Forward
+compatibility, and **there is no upcaster to write, because the code that would
+run it is not code you ship.** The only answers are do not make the change, or
+version the endpoint. This package offers no hook for a response fix, because a
+hook that cannot help is worse than an honest refusal: it suggests the problem
+has been handled.
+
+That is why the verdict is the product here. It is worth something only at the
+moment before shipping.
+
+```fsharp
+match Wire.responses renames previous current |> Wire.unfixable with
+| [] -> ()
+| breaks -> failwith (Wire.report breaks)
+```
+
+```
+  InvoiceDto: the field 'taxMinorUnits' was removed.
+    Clients already written (they read what you send): a client reading
+    taxMinorUnits will find it missing. Nothing you ship can fix this, because
+    the code that breaks is theirs. Version the endpoint, or keep the shape as
+    it was.
+
+  CreateBillRequest: the required field 'periodStart' was added.
+    Clients already written (they send what you read): bodies already in the
+    wild carry no periodStart. An upcaster must take the old body and produce
+    the current one.
+```
+
+Verdicts name the **audience**, not the direction. "Forward" and "backward" are
+the two words people reliably get the wrong way round, and this is read by
+somebody deciding whether to ship.
+
 ## Where the snapshot file belongs
 
-**Beside your codecs, not beside your SQL migrations.** This is the non-obvious
-part, and filing it with the migrations is the mistake to avoid.
+**Not beside your SQL migrations.** That is the mistake to avoid; the right
+neighbour depends on which policy it serves.
 
-The codec is what wrote the bytes; the snapshot describes those bytes; the two
-change together and should be reviewed in the same diff. The migrations describe
-the tables, which in an event-sourced system barely change at all.
+| Policy | File lives | Because |
+| --- | --- | --- |
+| `Events` | beside the **codecs** | the codec is what wrote the bytes |
+| `Wire` | beside the **request and response schemas** | those describe what goes on the wire |
+
+In both cases the snapshot changes in the same pull request as the change that
+moved the shape, so a colleague reviews the verdict and the cause together. The
+migrations describe the tables, which in an event-sourced system barely change
+at all.
 
 The format is itself described by an Etymon `Schema`, so it round-trips through
 the same codec as everything else and a malformed file says where:
@@ -127,7 +198,14 @@ shapes[2].fields[0].name: is required
 - **Counting affected events.** "4,110 stored events lack this field" is useful
   and needs a database driver. A provider package may offer it later; the core
   stays pure and testable without infrastructure, like its siblings.
-- **Writing upcasters.** See above — a business judgement, not a derivation.
+- **Counting affected clients — and there is no later for this one.** With
+  events you can query the log. There is no equivalent on the wire: you do not
+  know who your clients are or which version they are on. **Every wire verdict
+  is categorical and never quantified.** No numbers are coming.
+- **Deciding whether to version the endpoint.** Whether a break is worth a new
+  API version, a deprecation window or a refusal is a product judgement. The
+  package says what would break and for whom.
+- **Writing upcasters.** A business judgement, not a derivation.
 - **Knowing whether removing a field is safe** when something outside the
   application reads the log. It cannot see those readers.
 

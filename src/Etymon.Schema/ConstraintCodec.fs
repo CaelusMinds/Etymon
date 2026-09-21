@@ -7,7 +7,7 @@ namespace Etymon
 /// <para>
 /// Constraints are data, and more than one package needs to write them to a
 /// file and read them back: the table snapshot in <c>Etymon.Schema.Sql</c> and
-/// the event snapshot in <c>Etymon.Schema.Events</c> both record the rules a
+/// the event snapshot in <c>Etymon.Schema.Compatibility</c> both record the rules a
 /// value must satisfy. Two hand-written copies of one format is the drift this
 /// suite exists to prevent, so there is one definition and both use it.
 /// </para>

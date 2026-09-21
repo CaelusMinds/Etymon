@@ -3,19 +3,19 @@ namespace Etymon
 open System
 
 /// <summary>
-/// The type of one field in an event, reduced to what compatibility depends on.
+/// The type of one field, reduced to what compatibility depends on.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Deliberately coarser than <see cref="T:Etymon.SchemaInfo"/>. Two events are
+/// Deliberately coarser than <see cref="T:Etymon.SchemaInfo"/>. Two payloads are
 /// compatible or not because of the JSON they hold, so this records the JSON
 /// shape and the rules, and forgets everything a description carries that a
 /// stored byte does not — prose, examples, which .NET type it came from.
 /// </para>
 /// <para>
 /// The coarseness is what makes the snapshot stable: renaming an F# record or
-/// adding a doc comment must not read as a change to the events already
-/// written.
+/// adding a doc comment must not read as a change to what was already
+/// written or already sent.
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]
@@ -35,10 +35,10 @@ type FieldType =
     /// Arbitrary JSON, whose shape this cannot reason about.
     | Unknown
 
-/// <summary>One field of an event: what it is called, what it holds, and whether it
-/// has to be there.</summary>
+/// <summary>One field: what it is called, what it holds, and whether it has to be
+/// there.</summary>
 [<NoComparison>]
-type EventField =
+type ShapeField =
     {
         /// The key as it appears in the stored JSON.
         Name: string
@@ -48,36 +48,37 @@ type EventField =
         /// be null, which <see cref="T:Etymon.FieldType"/> carries.
         Required: bool
         /// The rules the value must satisfy, in the vocabulary from
-        /// <c>Etymon.Core</c>. Narrowing one of these breaks reading of events
-        /// already written, which is why they are recorded rather than dropped.
+        /// <c>Etymon.Core</c>. Narrowing one of these breaks reading of payloads
+        /// already written or already sent, which is why they are recorded
+        /// rather than dropped.
         Constraints: Constraint list
     }
 
 /// <summary>
-/// The field structure of one event type at one version.
+/// The field structure of one named thing at one version.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Distinct from the event <em>type</em>, which is the name, and from an event
-/// <em>instance</em>, which is a row. A shape is what a reader must be able to
+/// An event type, a request body, a response body: the machinery does not care
+/// which, and the policies in <c>Events</c> and <c>Wire</c> are what make it
+/// mean something. Distinct from the <em>type</em>, which is the name, and from
+/// an <em>instance</em>, which is a row or a payload. A shape is what a reader must be able to
 /// cope with.
 /// </para>
 /// <para>
-/// In an event-sourced system the tables barely change: the event table has the
-/// columns it will always have. What changes is what is written inside the
-/// payload, and no migration tool sees it, because no column moved. This is the
-/// description of that invisible thing.
+/// This is the description of the thing no migration tool sees, because it is
+/// not in a column: the shape inside the payload.
 /// </para>
 /// </remarks>
 [<NoComparison>]
-type EventShape =
+type Shape =
     {
-        /// The event type name, as stored.
+        /// The name this shape is recorded under.
         Name: string
-        /// Which version of this event type the shape describes.
+        /// Which version of that name the shape describes.
         Version: int
         /// Its fields, in declaration order.
-        Fields: EventField list
+        Fields: ShapeField list
     }
 
 /// <summary>
@@ -89,15 +90,15 @@ type EventShape =
 /// colleague can object to before it reaches a log that cannot be rewritten.
 /// </remarks>
 [<NoComparison>]
-type EventSnapshot =
+type ShapeSnapshot =
     {
         /// The shapes, in a stable order.
-        Shapes: EventShape list
+        Shapes: Shape list
     }
 
 /// Building shapes from a <c>Schema</c>, and snapshots from shapes.
 [<RequireQualifiedAccess>]
-module EventShape =
+module Shape =
 
     let private scalarName (kind: PrimKind) =
         match kind with
@@ -134,18 +135,19 @@ module EventShape =
         | SAnnotated _ -> FieldType.Unknown
 
     /// <summary>
-    /// The shape of an event, derived from the <c>Schema</c> its codec is built
-    /// from.
+    /// The shape of a named thing, derived from the <c>Schema</c> that describes
+    /// it.
     /// </summary>
     /// <remarks>
-    /// Derive this from the same value the codec uses. The codec is what wrote
-    /// the bytes; a shape derived from anything else describes a hope rather
-    /// than the log.
+    /// Derive this from the same value that does the work -- the codec for an
+    /// event, the request or response schema for a wire contract. A shape
+    /// derived from anything else describes a hope rather than what is actually
+    /// written or sent.
     /// </remarks>
     /// <example><code lang="fsharp">
-    /// EventShape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
+    /// Shape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
     /// </code></example>
-    let ofSchema (name: string) (version: int) (schema: Schema<'T>) : EventShape =
+    let ofSchema (name: string) (version: int) (schema: Schema<'T>) : Shape =
         let fields =
             match SchemaInfo.strip schema.Info with
             | SObject(_, fields) ->
@@ -159,7 +161,7 @@ module EventShape =
                     }
                 )
             | _ ->
-                // An event that is not an object has no fields to compare, and
+                // Something that is not an object has no fields to compare, and
                 // every change to it is a change to the whole payload. Saying so
                 // is better than pretending there is structure to diff.
                 []
@@ -171,13 +173,13 @@ module EventShape =
         }
 
     /// <summary>The field of this shape with a given name, if it has one.</summary>
-    let tryField (name: string) (shape: EventShape) =
+    let tryField (name: string) (shape: Shape) =
         shape.Fields
         |> List.tryFind (fun f -> String.Equals(f.Name, name, StringComparison.Ordinal))
 
-/// Building and reading <see cref="T:Etymon.EventSnapshot"/> values.
+/// Building and reading <see cref="T:Etymon.ShapeSnapshot"/> values.
 [<RequireQualifiedAccess>]
-module EventSnapshot =
+module ShapeSnapshot =
 
     /// <summary>
     /// A snapshot of the given shapes, ordered by name and version so that the
@@ -189,31 +191,31 @@ module EventSnapshot =
     /// real one stops being read.
     /// </remarks>
     /// <example><code lang="fsharp">
-    /// EventSnapshot.of' [ raisedV1; raisedV2; settledV1 ]
+    /// ShapeSnapshot.of' [ raisedV1; raisedV2; settledV1 ]
     /// </code></example>
-    let of' (shapes: EventShape list) : EventSnapshot =
+    let of' (shapes: Shape list) : ShapeSnapshot =
         {
             Shapes = shapes |> List.sortBy (fun s -> s.Name, s.Version)
         }
 
-    /// <summary>Every version recorded for one event type, in order.</summary>
-    let versionsOf (name: string) (snapshot: EventSnapshot) =
+    /// <summary>Every version recorded under one name, in order.</summary>
+    let versionsOf (name: string) (snapshot: ShapeSnapshot) =
         snapshot.Shapes
         |> List.filter (fun s -> String.Equals(s.Name, name, StringComparison.Ordinal))
         |> List.map (fun s -> s.Version)
         |> List.sort
 
-    /// <summary>Every event type in the snapshot, without repeats.</summary>
-    let names (snapshot: EventSnapshot) =
+    /// <summary>Every name in the snapshot, without repeats.</summary>
+    let names (snapshot: ShapeSnapshot) =
         snapshot.Shapes |> List.map (fun s -> s.Name) |> List.distinct |> List.sort
 
     /// <summary>One shape, by name and version.</summary>
-    let tryShape (name: string) (version: int) (snapshot: EventSnapshot) =
+    let tryShape (name: string) (version: int) (snapshot: ShapeSnapshot) =
         snapshot.Shapes
         |> List.tryFind (fun s -> String.Equals(s.Name, name, StringComparison.Ordinal) && s.Version = version)
 
-    /// <summary>The highest version recorded for an event type.</summary>
-    let tryLatest (name: string) (snapshot: EventSnapshot) =
+    /// <summary>The highest version recorded under a name.</summary>
+    let tryLatest (name: string) (snapshot: ShapeSnapshot) =
         match versionsOf name snapshot with
         | [] -> None
         | versions -> tryShape name (List.max versions) snapshot
