@@ -15,7 +15,11 @@ open Expecto
 open Etymon
 
 [<NoComparison>]
-type BillLine = { Sku: string | null; Quantity: Nullable<int> }
+type BillLine =
+    {
+        Sku: string | null
+        Quantity: Nullable<int>
+    }
 
 [<NoComparison>]
 type CreateBill =
@@ -51,7 +55,9 @@ let private schema =
         and! billDate = WireField.dateOnly "billDate" (fun b -> b.BillDate)
         and! approved = WireField.bool "approved" (fun b -> b.Approved)
         and! lines = WireField.array "lines" lineSchema (fun b -> b.Lines)
-        and! dimensions = WireField.dictionary "dimensions" Schema.string (fun b -> b.Dimensions)
+
+        and! dimensions =
+            WireField.dictionary "dimensions" Schema.string (fun b -> b.Dimensions)
 
         return
             {
@@ -124,12 +130,17 @@ let tests =
             test "a record that is null throughout writes an object with nothing in it" {
                 // The collections write as empty rather than vanishing, because
                 // a caller reading "lines" should find a list.
-                Expect.equal (Schema.toJson schema empty) """{"lines":[],"dimensions":{}}""" "absent is absent, not null"
+                Expect.equal
+                    (Schema.toJson schema empty)
+                    """{"lines":[],"dimensions":{}}"""
+                    "absent is absent, not null"
             }
 
             test "an absent key and an explicit null arrive the same way" {
                 let fromAbsent = Schema.fromJson schema """{}"""
-                let fromNull = Schema.fromJson schema """{"billNumber":null,"lines":null,"dimensions":null}"""
+
+                let fromNull =
+                    Schema.fromJson schema """{"billNumber":null,"lines":null,"dimensions":null}"""
 
                 match fromAbsent, fromNull with
                 | Ok a, Ok b ->
@@ -153,9 +164,7 @@ let tests =
             }
 
             test "a constrained nullable field still enforces its rule" {
-                Expect.isTrue
-                    (Validation.isOk (Schema.fromJson schema """{"role":"admin"}"""))
-                    "a permitted value"
+                Expect.isTrue (Validation.isOk (Schema.fromJson schema """{"role":"admin"}""")) "a permitted value"
 
                 match Validation.errorList (Schema.fromJson schema """{"role":"emperor"}""") with
                 | [ e ] -> Expect.stringContains (e.ToString()) "must be one of" "and one that is not"
@@ -168,7 +177,9 @@ let tests =
                 // mechanical rather than a judgement on every field.
                 match SchemaInfo.strip (Schema.info schema) with
                 | SObject(_, fields) ->
-                    let required = fields |> List.filter (fun f -> f.Required) |> List.map (fun f -> f.Name)
+                    let required =
+                        fields |> List.filter (fun f -> f.Required) |> List.map (fun f -> f.Name)
+
                     Expect.isEmpty required "every nullable field became optional, none required"
                 | other -> failtestf "expected an object, got %A" other
             }

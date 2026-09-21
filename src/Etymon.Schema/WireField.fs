@@ -89,7 +89,8 @@ module WireField =
         (name: string)
         (check: ConstraintCheck<string>)
         (get: 'T -> string | null)
-        : ObjectPart<'T, string | null> =
+        : ObjectPart<'T, string | null>
+        =
         Schema.optional name (Schema.string |> Schema.constrain check) (fun value -> Option.ofObj (get value))
         |> rebound Option.toObj
 
@@ -181,7 +182,8 @@ module WireField =
         (name: string)
         (value: Schema<'V>)
         (get: 'T -> IDictionary<string, 'V> | null)
-        : ObjectPart<'T, Dictionary<string, 'V>> =
+        : ObjectPart<'T, Dictionary<string, 'V>>
+        =
         Schema.defaulted
             name
             (Schema.map value)
