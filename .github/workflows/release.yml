@@ -28,11 +28,11 @@ jobs:
       # a key valid for one hour. Nothing long-lived is stored anywhere.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
@@ -69,17 +69,39 @@ jobs:
         run: |
           # The same version properties as the build, or --no-build evaluates a
           # different property set than the one that produced the output.
+          #
+          # Grouped and named. A bare loop reports only "exit code 1", which
+          # says a release was stopped and nothing about why -- and the run log
+          # is not readable without admin rights, so the annotation has to carry
+          # the answer on its own.
+          failed=""
+
           for project in tests/*.Tests; do
             for tfm in net8.0 net10.0; do
-              dotnet run --project "$project" -c Release -f "$tfm" --no-build ${VERSION_ARG}
+              name="$(basename "$project") $tfm"
+              echo "::group::$name"
+
+              if dotnet run --project "$project" -c Release -f "$tfm" --no-build ${VERSION_ARG}; then
+                echo "::endgroup::"
+              else
+                echo "::endgroup::"
+                echo "::error::$name failed. The release was stopped before anything was published."
+                failed="$failed
+            $name"
+              fi
             done
           done
+
+          if [ -n "$failed" ]; then
+            echo "::error::Release halted. Failing test projects:$failed"
+            exit 1
+          fi
 
       - name: Pack
         shell: bash
         run: dotnet pack -c Release --no-build ${VERSION_ARG}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages
           path: artifacts/packages/*.nupkg

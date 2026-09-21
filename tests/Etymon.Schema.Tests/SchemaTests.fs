@@ -125,9 +125,17 @@ let tests =
 
                         Expect.equal (Validation.errorCount result) 100_000 "every element is still reported"
 
+                        // Thirty seconds, not ten. This is measuring a
+                        // complexity class, not a speed: the linear version
+                        // takes about a sixth of a second here and would have to
+                        // be two hundred times slower to fail, while the
+                        // quadratic one took sixty-seven. A bound tight enough
+                        // to look impressive is a bound that fails on a loaded
+                        // shared runner for reasons that have nothing to do with
+                        // the code, and a test that cries wolf gets muted.
                         Expect.isLessThan
                             clock.Elapsed.TotalSeconds
-                            10.0
+                            30.0
                             "a rejection should not cost more than the request that caused it"
                     }
 
