@@ -13,11 +13,15 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
-## [Unreleased]
+## [0.1.0-preview.4]
 
 ### Changed -- breaking
 
-- **`Etymon.Migrations` is now `Etymon.Schema.Sql`.** The package maps a Schema to
+- **`Etymon.Migrations` is now `Etymon.Schema.Sql`.** `Etymon.Migrations` stops
+  at `0.1.0-preview.3` and receives nothing further; take `Etymon.Schema.Sql`
+  instead. The namespace is unchanged, so only the package reference moves.
+
+  The package maps a Schema to
   a table model, compares two models and emits SQL text. It renders; it does not
   migrate, and its README had to say so in its first paragraph -- a name that
   needs correcting in its opening sentence is a name doing negative work. It now
@@ -189,7 +193,7 @@ The first public preview: fourteen packages, published together.
   embedded symbols, SourceLink, Fantomas, and dependency rules enforced as build
   errors (`ETY0001`–`ETY0003`).
 
-[Unreleased]: https://github.com/CaelusMinds/Etymon/compare/v0.1.0-preview.3...HEAD
+[0.1.0-preview.4]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.1
