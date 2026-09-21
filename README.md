@@ -26,7 +26,9 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 > **Status: pre-release.** All fourteen packages are built, and the thirteen with
 > code in them are tested — **810 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
-> against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
+> against both a Giraffe server and a minimal-API one. Published to nuget.org as
+> `0.1.0-preview.3`; the API can still change, and a preview is where that should
+> happen.
 
 ## Packages
 
@@ -254,7 +256,14 @@ restate a single rule.
 dotnet run --project samples/Etymon.Sample.Derivations
 ```
 
-Etymon is not on NuGet yet. To build it:
+To use it, take the meta-package or just the part you need. Previews are not
+restored unless you ask for the version, so name it:
+
+```xml
+<PackageReference Include="Etymon" Version="0.1.0-preview.3" />
+```
+
+To build the repository instead:
 
 ```bash
 dotnet tool restore

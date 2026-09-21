@@ -28,7 +28,7 @@
       Bump the counter for each drop. A stable release clears it:
           dotnet pack -c Release -p:VersionSuffix=
     -->
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.2</VersionSuffix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">preview.3</VersionSuffix>
   </PropertyGroup>
 
   <!-- ==========================================================
