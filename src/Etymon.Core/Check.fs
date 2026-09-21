@@ -24,6 +24,18 @@ type ConstraintCheck<'T> =
         Constraint: Constraint
         /// Whether a value meets it.
         Satisfies: 'T -> bool
+        /// <summary>
+        /// A stable code to report instead of the constraint, when one is
+        /// wanted.
+        /// </summary>
+        /// <remarks>
+        /// For an API that already publishes error codes its callers branch on.
+        /// The constraint is still carried, so the OpenAPI document, the SQL and
+        /// the generators are unaffected — only the reported reason changes.
+        /// </remarks>
+        Code: string option
+        /// Wording to use instead of the constraint's own description.
+        Message: string option
     }
 
 /// Ready-made <see cref="T:Etymon.ConstraintCheck`1"/> values, and the means to run them.
@@ -251,7 +263,43 @@ module Check =
         {
             Constraint = c
             Satisfies = satisfies
+            Code = None
+            Message = None
         }
+
+    /// <summary>
+    /// Reports a stable code when this check fails, instead of the constraint
+    /// itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For adopting Etymon behind an API whose callers already branch on error
+    /// codes. Without this, moving a rule from hand-written code into a schema
+    /// changes what the API returns, which makes the change visible to every
+    /// integrator — and that is enough of a reason not to make it.
+    /// </para>
+    /// <para>
+    /// The constraint is still carried, so the OpenAPI document, the generated
+    /// SQL and the generators see exactly what they saw before. Only
+    /// <c>ValidationError.Reason</c> changes, from <c>ConstraintFailed</c> to
+    /// <c>Rejected</c>.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Check.minLength 1 |> Check.withCode "bill_has_no_lines"
+    /// </code></example>
+    let withCode (code: string) (check: ConstraintCheck<'T>) = { check with Code = Some code }
+
+    /// <summary>Replaces the wording a failed check reports.</summary>
+    /// <remarks>
+    /// The constraint's own description says what the rule is; this says what it
+    /// means here. "must be at least 1 item" is correct and tells a caller
+    /// nothing about bills.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Check.minLength 1 |> Check.saying "A bill needs at least one line."
+    /// </code></example>
+    let saying (message: string) (check: ConstraintCheck<'T>) = { check with Message = Some message }
 
     /// <summary>Bounds the number of characters in a string, inclusive.</summary>
     /// <example><code lang="fsharp">
@@ -437,8 +485,14 @@ module Check =
     let toError (check: ConstraintCheck<'T>) (path: Path) : ValidationError =
         {
             Path = path
-            Reason = ErrorReason.ConstraintFailed check.Constraint
-            Message = Constraint.describe check.Constraint
+            Reason =
+                match check.Code with
+                | Some code -> ErrorReason.Rejected code
+                | None -> ErrorReason.ConstraintFailed check.Constraint
+            Message =
+                match check.Message with
+                | Some message -> message
+                | None -> Constraint.describe check.Constraint
         }
 
     /// <summary>Runs a check, returning the value unchanged or the error it produced.</summary>

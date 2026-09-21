@@ -46,6 +46,75 @@ let tests =
                 ]
 
             testList
+                "adopting Etymon behind an API that already publishes error codes"
+                [
+                    test "a coded check reports its code instead of the constraint" {
+                        let check = Check.minLength 1 |> Check.withCode "bill_has_no_lines"
+                        let error = Check.toError check Path.root
+
+                        Expect.equal
+                            error.Reason
+                            (ErrorReason.Rejected "bill_has_no_lines")
+                            "the caller's existing code survives the move into a schema"
+                    }
+
+                    test "an uncoded check still reports the constraint" {
+                        let error = Check.toError (Check.minLength 1) Path.root
+
+                        Expect.equal
+                            error.Reason
+                            (ErrorReason.ConstraintFailed(Constraint.Length(Some 1, None)))
+                            "the default is unchanged"
+                    }
+
+                    test "a code does not hide the constraint from the derivations" {
+                        // The whole point: an API keeps its error code and the
+                        // document still says minLength. If the constraint were
+                        // replaced, the OpenAPI, the SQL and the generators would
+                        // all quietly lose the rule.
+                        let check = Check.minLength 1 |> Check.withCode "bill_has_no_lines"
+
+                        Expect.equal
+                            check.Constraint
+                            (Constraint.Length(Some 1, None))
+                            "still inspectable, still derivable"
+                    }
+
+                    test "wording can be replaced without touching the rule" {
+                        let check = Check.minLength 1 |> Check.saying "A bill needs at least one line."
+
+                        let error = Check.toError check Path.root
+
+                        Expect.equal error.Message "A bill needs at least one line." "the caller's wording"
+
+                        Expect.equal check.Constraint (Constraint.Length(Some 1, None)) "and the rule is untouched"
+                    }
+
+                    test "a code and wording compose" {
+                        let check =
+                            Check.minLength 1
+                            |> Check.withCode "bill_has_no_lines"
+                            |> Check.saying "A bill needs at least one line."
+
+                        let error = Check.toError check Path.root
+                        Expect.equal error.Reason (ErrorReason.Rejected "bill_has_no_lines") "the code"
+                        Expect.equal error.Message "A bill needs at least one line." "and the wording"
+                    }
+
+                    test "neither changes whether the check passes" {
+                        let plain = Check.minLength 1
+
+                        let dressed = plain |> Check.withCode "x" |> Check.saying "y"
+
+                        for value in [ ""; "a"; "ab" ] do
+                            Expect.equal
+                                (dressed.Satisfies value)
+                                (plain.Satisfies value)
+                                $"%A{value} is judged the same either way"
+                    }
+                ]
+
+            testList
                 "pattern"
                 [
                     table "a five-digit zip" (Check.pattern @"^\d{5}$") [ "12345" ] [ "1234"; "123456"; "abcde"; "" ]
