@@ -6,7 +6,7 @@ namespace Etymon
 /// </summary>
 /// <remarks>
 /// Deliberately small. Every case here is one that Etymon can derive from a
-/// schema and that every supported dialect can express. A type that only one
+/// Schema and that every supported dialect can express. A type that only one
 /// database has belongs in an override, not in this list.
 /// </remarks>
 [<RequireQualifiedAccess>]
@@ -96,7 +96,7 @@ type Table =
     }
 
 /// <summary>
-/// A relational schema at a point in time.
+/// The tables, at a point in time.
 /// </summary>
 /// <remarks>
 /// Written to a file in your repository and committed, so that a migration is

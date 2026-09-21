@@ -175,7 +175,7 @@ layer entirely.
 
 > **Read this before adopting it.** If EF Core owns your schema, keep using EF
 > migrations. Two things generating DDL is two sources of truth, which is the
-> exact drift this suite exists to prevent. `Etymon.Migrations` is for stacks
+> exact drift this suite exists to prevent. `Etymon.Schema.Sql` is for stacks
 > without an ORM — Dapper, raw ADO.NET — where the alternative is hand-writing
 > the DDL anyway.
 

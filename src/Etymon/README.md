@@ -9,7 +9,7 @@ suite that cost nothing but `FSharp.Core`:
 
 `Etymon.Core` · `Etymon.Base` · `Etymon.Schema` · `Etymon.Schema.OpenApi` ·
 `Etymon.Schema.TypeScript` · `Etymon.Invariants` · `Etymon.Config` ·
-`Etymon.Migrations` · `Etymon.Api` · `Etymon.Api.Client`
+`Etymon.Schema.Sql` · `Etymon.Api` · `Etymon.Api.Client`
 
 ## What is deliberately not here
 

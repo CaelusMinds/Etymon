@@ -1,8 +1,8 @@
-module Etymon.Migrations.Tests.MappingTests
+module Etymon.Schema.Sql.Tests.MappingTests
 
 open Expecto
 open Etymon
-open Etymon.Migrations.Tests.Domain
+open Etymon.Schema.Sql.Tests.Domain
 
 let tests =
     testList

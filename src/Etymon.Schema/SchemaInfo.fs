@@ -94,7 +94,7 @@ module Meta =
 /// <remarks>
 /// <para>
 /// This is the half of <c>Schema&lt;'T&gt;</c> that every other package reads.
-/// <c>Etymon.Schema.OpenApi</c> turns it into JSON Schema, <c>Etymon.Migrations</c>
+/// <c>Etymon.Schema.OpenApi</c> turns it into JSON Schema, <c>Etymon.Schema.Sql</c>
 /// into a table, <c>Etymon.Invariants.FsCheck</c> into a generator — each of them a
 /// pure function of this tree and nothing else.
 /// </para>

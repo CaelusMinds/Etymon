@@ -141,6 +141,19 @@ module Migrations =
         | Change.CreateTable table -> Ok [ createTable dialect table ]
         | Change.DropTable table -> Ok [ $"DROP TABLE %s{dialect.Quote table.Name};" ]
 
+        // Refused rather than skipped. This version cannot name the constraint
+        // it would have to drop, so it cannot write the change -- but a reviewer
+        // who is told nothing will ship a script that leaves the old rule in
+        // place, and that is the failure mode worth being noisy about.
+        | Change.ConstraintsDiffer(table, column, before, after) ->
+            let render (constraints: Constraint list) =
+                match constraints with
+                | [] -> "no rules"
+                | _ -> String.Join("; ", constraints |> List.map Constraint.describe)
+
+            Error
+                $"the rules on %s{table}.%s{column} differ between the two snapshots, and this version cannot express a constraint change. Before: %s{render before}. After: %s{render after}. Write the ALTER by hand, or recreate the constraint."
+
         | Change.AddColumn(table, column) ->
             // A NOT NULL column cannot simply be added to a table that has rows,
             // unless it has a default. Saying so is more use than a statement
@@ -404,167 +417,6 @@ module Migrations =
                     )
             ]
 
-    let private numSchema: Schema<Num> =
-        Schema.union
-            "Num"
-            "kind"
-            [
-                Schema.case
-                    "int"
-                    Schema.int64
-                    Num.Int
-                    (function
-                    | Num.Int v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-                Schema.case
-                    "decimal"
-                    Schema.decimal
-                    Num.Dec
-                    (function
-                    | Num.Dec v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-                Schema.case
-                    "float"
-                    Schema.float
-                    Num.Float
-                    (function
-                    | Num.Float v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-            ]
-
-    /// A format is carried by its JSON Schema name, which is the spelling every
-    /// other part of the suite already uses for it.
-    let private formatSchema: Schema<Format> =
-        let byName =
-            [
-                Format.Email
-                Format.Uuid
-                Format.DateTime
-                Format.Date
-                Format.Time
-                Format.Duration
-                Format.Uri
-                Format.UriReference
-                Format.Hostname
-                Format.Ipv4
-                Format.Ipv6
-            ]
-            |> List.map (fun f -> Format.name f, f)
-
-        Schema.string
-        |> Schema.convert
-            (fun name ->
-                byName
-                |> List.tryFind (fun (known, _) -> known = name)
-                |> Option.map snd
-                |> Option.defaultValue (Format.Custom name)
-            )
-            Format.name
-
-    /// Constraints are written to the snapshot because they are part of the shape
-    /// the database is in: a CHECK that exists is something a later diff has to
-    /// be able to see. An earlier draft left them out on the grounds that the
-    /// schema is the source of truth, which confused "where the rule is declared"
-    /// with "what the database currently has".
-    let private constraintSchema: Schema<Constraint> =
-        let optionalInt = Schema.nullable Schema.int
-        let optionalNum = Schema.nullable numSchema
-
-        Schema.union
-            "Constraint"
-            "kind"
-            [
-                Schema.case
-                    "length"
-                    (Schema.object "Length" {
-                        let! min = Schema.required "min" optionalInt fst
-                        and! max = Schema.required "max" optionalInt snd
-                        return (min, max)
-                    })
-                    Constraint.Length
-                    (function
-                    | Constraint.Length(min, max) -> ValueSome(min, max)
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "range"
-                    (Schema.object "Range" {
-                        let! min = Schema.required "min" optionalNum (fun (a, _, _, _) -> a)
-                        and! max = Schema.required "max" optionalNum (fun (_, b, _, _) -> b)
-
-                        and! exclusiveMin =
-                            Schema.required "exclusiveMin" Schema.bool (fun (_, _, c, _) -> c)
-
-                        and! exclusiveMax =
-                            Schema.required "exclusiveMax" Schema.bool (fun (_, _, _, d) -> d)
-
-                        return (min, max, exclusiveMin, exclusiveMax)
-                    })
-                    Constraint.Range
-                    (function
-                    | Constraint.Range(a, b, c, d) -> ValueSome(a, b, c, d)
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "pattern"
-                    Schema.string
-                    Constraint.Pattern
-                    (function
-                    | Constraint.Pattern v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "format"
-                    formatSchema
-                    Constraint.HasFormat
-                    (function
-                    | Constraint.HasFormat v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "oneOf"
-                    (Schema.list Schema.string)
-                    Constraint.OneOf
-                    (function
-                    | Constraint.OneOf v -> ValueSome v
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "items"
-                    (Schema.object "Items" {
-                        let! min = Schema.required "min" optionalInt (fun (a, _, _) -> a)
-                        and! max = Schema.required "max" optionalInt (fun (_, b, _) -> b)
-                        and! unique = Schema.required "unique" Schema.bool (fun (_, _, c) -> c)
-                        return (min, max, unique)
-                    })
-                    Constraint.Items
-                    (function
-                    | Constraint.Items(a, b, c) -> ValueSome(a, b, c)
-                    | _ -> ValueNone
-                    )
-
-                Schema.case
-                    "opaque"
-                    (Schema.object "Opaque" {
-                        let! code = Schema.required "code" Schema.string fst
-                        and! description = Schema.required "description" Schema.string snd
-                        return (code, description)
-                    })
-                    Constraint.Opaque
-                    (function
-                    | Constraint.Opaque(a, b) -> ValueSome(a, b)
-                    | _ -> ValueNone
-                    )
-            ]
-
     let private columnSchema: Schema<Column> =
         Schema.object "Column" {
             let! name = Schema.required "name" Schema.string (fun c -> c.Name)
@@ -573,7 +425,7 @@ module Migrations =
             and! defaultValue = Schema.optional "default" Schema.string (fun c -> c.Default)
 
             and! constraints =
-                Schema.defaulted "constraints" (Schema.list constraintSchema) [] (fun c -> c.Constraints)
+                Schema.defaulted "constraints" (Schema.list ConstraintCodec.schema) [] (fun c -> c.Constraints)
 
             return
                 {

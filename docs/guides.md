@@ -79,7 +79,7 @@ a bug in the handler rather than something to pass on.
 
 ## Migrations, and when not to use them
 
-`Etymon.Migrations` derives a table from a schema, diffs two snapshots and writes
+`Etymon.Schema.Sql` derives a table from a schema, diffs two snapshots and writes
 SQL you review in a pull request. **If EF Core owns your schema, use EF
 migrations.** Two things generating DDL means two sources of truth, which is the
 drift this suite exists to prevent. These migrations are for stacks without an

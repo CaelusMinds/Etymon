@@ -32,6 +32,23 @@ type Change =
     /// A uniqueness rule removed.
     | DropUnique of table: string * constraint': UniqueConstraint
 
+    /// <summary>
+    /// The two snapshots disagree about the rules on a column, and this version
+    /// cannot express a constraint change as SQL.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Emitted so that the gap is loud. A changed <c>CHECK</c> used to produce no
+    /// change at all, which meant the generated migration was silently
+    /// incomplete: the reviewer saw a script that looked finished, and the
+    /// database went on enforcing the old rule.
+    /// </para>
+    /// <para>
+    /// A refusal is worse than a correct answer and far better than silence.
+    /// </para>
+    /// </remarks>
+    | ConstraintsDiffer of table: string * column: string * before: Constraint list * after: Constraint list
+
 /// Comparing snapshots.
 [<RequireQualifiedAccess>]
 module Diff =
@@ -61,6 +78,9 @@ module Diff =
         | Change.CreateTable _
         | Change.AddColumn _
         | Change.MakeNullable _
+        // Nothing is emitted for it, so it destroys nothing. What it costs is
+        // attention, which is the point of it.
+        | Change.ConstraintsDiffer _
         | Change.DropUnique _ -> false
 
     /// <summary>What a change does, in a sentence.</summary>
@@ -85,6 +105,8 @@ module Diff =
 
             $"require %s{table} (%s{columns}) to be unique, which fails if existing rows already repeat"
         | Change.DropUnique(table, c) -> $"drop the uniqueness rule %s{c.Name} on %s{table}"
+        | Change.ConstraintsDiffer(table, column, _, _) ->
+            $"the rules on %s{table}.%s{column} differ between the two snapshots"
 
     /// <summary>
     /// The change that undoes another, where one exists.
@@ -106,6 +128,11 @@ module Diff =
         | Change.DropUnique(table, c) -> Some(Change.AddUnique(table, c))
         | Change.AlterColumnType(table, column, before, after) ->
             Some(Change.AlterColumnType(table, column, after, before))
+        // Reversible in principle -- the reverse difference -- though neither
+        // direction can be expressed yet, so both sides refuse alike, and the
+        // down script carries the same warning as the up script.
+        | Change.ConstraintsDiffer(table, column, before, after) ->
+            Some(Change.ConstraintsDiffer(table, column, after, before))
         // Everything below this line destroyed something. Recreating the shape
         // does not bring back what was in it.
         | Change.DropTable _
@@ -171,6 +198,19 @@ module Diff =
                                         Change.MakeNotNull(afterTable.Name, afterColumn.Name)
                                     if not beforeColumn.Nullable && afterColumn.Nullable then
                                         Change.MakeNullable(afterTable.Name, afterColumn.Name)
+                                    // Compared but not expressible. Reporting a
+                                    // difference this version cannot write as SQL
+                                    // is the whole point: without it a changed
+                                    // CHECK produced no change at all, and the
+                                    // script looked complete while the database
+                                    // went on enforcing the old rule.
+                                    if beforeColumn.Constraints <> afterColumn.Constraints then
+                                        Change.ConstraintsDiffer(
+                                            afterTable.Name,
+                                            afterColumn.Name,
+                                            beforeColumn.Constraints,
+                                            afterColumn.Constraints
+                                        )
                                 ]
                         )
 

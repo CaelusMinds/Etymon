@@ -13,6 +13,61 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [Unreleased]
+
+### Changed -- breaking
+
+- **`Etymon.Migrations` is now `Etymon.Schema.Sql`.** The package maps a Schema to
+  a table model, compares two models and emits SQL text. It renders; it does not
+  migrate, and its README had to say so in its first paragraph -- a name that
+  needs correcting in its opening sentence is a name doing negative work. It now
+  sits in the pattern that already says what it is: `Schema.OpenApi` renders a
+  document, `Schema.TypeScript` renders types, `Schema.Sql` renders SQL. Nobody
+  expects `Schema.OpenApi` to serve a document, so nobody will expect this one to
+  touch a database.
+
+  Module names are unchanged: `Migrations.between` is still `Migrations.between`,
+  and "migration" remains the word for the output. You write migrations; this
+  package drafts them. Update the package reference and the namespace is the
+  same.
+
+### Added
+
+- **`Etymon.Schema.Events`.** In an event-sourced system the tables barely
+  change; what changes is what is written inside the payload, and no migration
+  tool sees it because no column moved. This derives an event shape from a
+  Schema, commits the set as a snapshot, and compares two snapshots for
+  compatibility in both directions -- can new code read events already written,
+  and can already-deployed code read events written by new code.
+
+  It never emits SQL, never opens a connection, and never proposes rewriting an
+  event. Not behind a flag: the events already written are the one irreplaceable
+  thing in the system.
+
+  Renames are declared rather than detected, because a rename is
+  indistinguishable from a removal plus an addition and the difference decides
+  whether stored events can be read. Upcaster coverage is checked by graph
+  reachability and the gap is named by version.
+
+- **`ConstraintCodec`** in `Etymon.Schema`: the constraint vocabulary as a
+  Schema. Both snapshot formats record constraints, and two hand-written copies
+  of one format is the drift this suite exists to prevent.
+
+- **`docs/glossary.md`.** Schema against database schema, migration against
+  runner, backward against forward. Written because a design discussion went
+  round in circles for six exchanges before anyone noticed that two words each
+  meant two things.
+
+### Fixed
+
+- **A changed `CHECK` produced no diff and no warning.** The generated migration
+  was silently incomplete: the script looked finished, the reviewer approved it,
+  and the database went on enforcing the old rule. Constraint differences are now
+  reported as a change, refused in writing in the script (`-- NOT GENERATED:`)
+  and listed in `Unsupported` so a build can fail on them. Still not expressible
+  as SQL -- but a refusal is worse than a correct answer and far better than
+  silence.
+
 ## [0.1.0-preview.3]
 
 ### Changed — breaking
@@ -126,7 +181,7 @@ The first public preview: fourteen packages, published together.
   can hold, and generators that produce only values a schema accepts.
 - **Etymon.Config** — configuration through a schema, every problem at once, with
   the source each value came from.
-- **Etymon.Migrations** — a relational model derived from a schema, snapshot
+- **Etymon.Schema.Sql** — a relational model derived from a schema, snapshot
   diffing and SQL, carrying no database driver.
 - **Etymon.Api**, **Etymon.Api.Giraffe**, **Etymon.Api.AspNetCore** and
   **Etymon.Api.Client** — endpoints as values, with adapters that interpret them.
@@ -134,6 +189,7 @@ The first public preview: fourteen packages, published together.
   embedded symbols, SourceLink, Fantomas, and dependency rules enforced as build
   errors (`ETY0001`–`ETY0003`).
 
+[Unreleased]: https://github.com/CaelusMinds/Etymon/compare/v0.1.0-preview.3...HEAD
 [0.1.0-preview.3]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/CaelusMinds/Etymon/releases/tag/v0.1.0-preview.1

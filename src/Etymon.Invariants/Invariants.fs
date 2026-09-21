@@ -7,7 +7,7 @@ namespace Etymon
 /// <para>
 /// Declaring the rules in one value is what lets other packages read them:
 /// <c>Etymon.Invariants.FsCheck</c> generates values that satisfy them,
-/// <c>Etymon.Migrations</c> can turn the expressible ones into database checks,
+/// <c>Etymon.Schema.Sql</c> can turn the expressible ones into database checks,
 /// and documentation can list them. A rule written inline inside a constructor
 /// is a rule nothing else can see.
 /// </para>

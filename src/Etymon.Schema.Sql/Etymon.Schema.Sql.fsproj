@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Renders an Etymon Schema as SQL: a table model, a diff between two committed snapshots, and a migration script for PostgreSQL or SQLite. A sibling of Etymon.Schema.OpenApi and Etymon.Schema.TypeScript -- one Schema, several renderings. The output is a reviewed file, so the package carries no database driver and no runner. Ambiguous mappings are errors rather than guesses, and destructive changes are flagged rather than emitted silently.</Description>
+    <PackageTags>$(PackageTags);sql;ddl;postgresql;sqlite;migrations</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="SqlModel.fs" />
+    <Compile Include="Mapping.fs" />
+    <Compile Include="Dialect.fs" />
+    <Compile Include="Diff.fs" />
+    <Compile Include="Migrations.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>

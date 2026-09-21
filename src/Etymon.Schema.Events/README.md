@@ -1,0 +1,136 @@
+# Etymon.Schema.Events
+
+**Is this change safe against the events already written?**
+
+Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
+`Etymon.Core` and `Etymon.Schema`, and on nothing else.
+
+## The problem
+
+In an event-sourced system the tables barely change. The event table has the
+columns it will always have, and no migration tool has anything to say — because
+no column moved.
+
+But something did change, and it is the dangerous kind: **the events already
+written are in the old shape, and they cannot be rewritten.** The code now has
+to read two shapes, and nothing checks that it can.
+
+Event sourcing moves the schema off the columns and into the payload. It is
+still schema, and it still wants deriving — which is why this sits beside
+`Etymon.Schema.Sql` and `Etymon.Schema.OpenApi` rather than inside a migrations
+tool. It describes shape; it does not describe a change to a database.
+
+## The hard rule
+
+**It never emits SQL, never opens a connection, and never proposes rewriting an
+event.** Not behind a flag, not as an option.
+
+Migrating an event store does not mean rewriting events. The only legitimate
+moves are **upcasting** — leave history alone, transform on read — and, rarely,
+copy-forward: write a new stream and keep the old one. A tool that offered to
+"fix up the old rows" would be offering to destroy the only irreplaceable thing
+in the system.
+
+## What it does
+
+```fsharp
+// A shape, derived from the Schema your codec is built from.
+let raisedV2 = EventShape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
+
+// A snapshot, committed to the repository.
+File.WriteAllText("events.snapshot.json", EventSnapshots.toJson (EventSnapshot.of' shapes))
+
+// Two snapshots in, verdicts out. Never a database.
+let changes = Compatibility.between renames previousSnapshot currentSnapshot
+printfn "%s" (Compatibility.report changes)
+```
+
+```
+  InvoiceRaised: the required field 'dueOn' was added.
+    Backward (new code reading events already written): events already written
+    have no 'dueOn', so an upcaster must supply one.
+```
+
+## Compatibility has a direction, and both matter
+
+**Never write "compatible" unqualified.**
+
+- **Backward** — new code can read events already written. The one you always
+  need; losing it makes history unreadable.
+- **Forward** — already-deployed code can read events written by newer code.
+  Matters during a rollout, when two versions run against one log.
+
+| Change | Backward | Forward |
+| --- | --- | --- |
+| added optional field | compatible | compatible |
+| **added required field** | **breaking** — needs an upcaster supplying a default | compatible |
+| removed optional field | compatible | compatible |
+| **removed required field** | compatible | **breaking** |
+| **changed a field's type** | **breaking** | **breaking** |
+| narrowed a constraint | **breaking** — old events may violate it | compatible |
+| widened a constraint | compatible | **breaking** |
+| added a union case | compatible | **breaking** — old code cannot read it |
+| removed a union case | **breaking** — old events carry it | compatible |
+
+Constraint changes are reported in **both** directions, because this compares
+rules rather than interpreting them: whether a change narrowed or widened is a
+judgement, and the package says so rather than guessing.
+
+## Renames are declared, never detected
+
+A rename is indistinguishable from a removal plus an addition, and the
+difference decides whether stored events can be read. So it refuses:
+
+```
+  'InvoiceRaised' v2 removes 'total' and adds 'amount'. That is either a rename
+  or separate changes, and the difference decides whether stored events can be
+  read. Declare it with Rename ("total", "amount"), or confirm they are separate.
+```
+
+```fsharp
+let renames = [ { Event = "InvoiceRaised"; From = "total"; To = "amount" } ]
+```
+
+## Every stored version must be readable
+
+An upcaster declares the version it reads and the version it produces. The check
+is pure graph reachability: from every version in the snapshot, can a chain of
+upcasters reach the current one?
+
+```
+  'InvoiceRaised' has stored shapes at v1 and v2 and v3, and the current shape is
+  v3. Upcasters exist for v2 -> v3. Nothing reads v1.
+```
+
+**It cannot write the upcaster for you.** "What due date should a 2024 invoice
+get?" is a business judgement. The package demands one and proves the chain is
+complete, which is all of what is derivable and most of the value.
+
+## Where the snapshot file belongs
+
+**Beside your codecs, not beside your SQL migrations.** This is the non-obvious
+part, and filing it with the migrations is the mistake to avoid.
+
+The codec is what wrote the bytes; the snapshot describes those bytes; the two
+change together and should be reviewed in the same diff. The migrations describe
+the tables, which in an event-sourced system barely change at all.
+
+The format is itself described by an Etymon `Schema`, so it round-trips through
+the same codec as everything else and a malformed file says where:
+
+```
+shapes[2].fields[0].name: is required
+```
+
+## Deliberately out of scope
+
+- **Counting affected events.** "4,110 stored events lack this field" is useful
+  and needs a database driver. A provider package may offer it later; the core
+  stays pure and testable without infrastructure, like its siblings.
+- **Writing upcasters.** See above — a business judgement, not a derivation.
+- **Knowing whether removing a field is safe** when something outside the
+  application reads the log. It cannot see those readers.
+
+## Licence
+
+[MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

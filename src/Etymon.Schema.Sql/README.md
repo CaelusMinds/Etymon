@@ -1,12 +1,45 @@
-# Etymon.Migrations
+# Etymon.Schema.Sql
 
-**A relational model derived from your schema, diffed into SQL you can review in
-a pull request.**
+**Renders a `Schema` as SQL:** a table model, a diff between two committed
+snapshots, and a migration script for PostgreSQL or SQLite.
 
-Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite. Depends on
-`Etymon.Core` and `Etymon.Schema`, and on **no database driver at all** — it
-generates SQL text and executes nothing, so a project can produce and review
-migrations without taking on Npgsql.
+Part of the [Etymon](https://github.com/CaelusMinds/Etymon) suite, and a sibling
+of the other renderers:
+
+| Package | Renders |
+| --- | --- |
+| `Etymon.Schema.OpenApi` | an OpenAPI document |
+| `Etymon.Schema.TypeScript` | TypeScript types |
+| **`Etymon.Schema.Sql`** | **SQL** |
+
+One `Schema`, several renderings — the documentation, the client, the database.
+Nobody expects `Schema.OpenApi` to serve a document or `Schema.TypeScript` to run
+`tsc`, and the same applies here.
+
+```fsharp
+// A Schema in, a migration out.
+let migration = Migrations.between Dialect.postgres previousSnapshot currentSnapshot
+File.WriteAllText("migrations/0007_add_bill_series.sql", migration.Up)
+```
+
+## The boundary is a reviewed file
+
+This package **drafts** migrations. Applying them is a **runner**'s job — DbUp,
+Flyway, a shell script — and you already have one. The runner owns ordering, the
+journal of what has been applied, locking and transactions; that is commodity
+work and it is where the liability lives.
+
+So the handover is a `.sql` file in your repository, and that is the design, not
+a shortfall:
+
+- **No database driver.** This package depends on `Etymon.Core` and
+  `Etymon.Schema` and nothing else. It cannot connect to anything, so it cannot
+  do anything to your data by accident.
+- **A colleague can object before it runs.** A change that exists as a file in a
+  pull request is one somebody can read, question and reject. That is a slower
+  loop than "apply on startup" and it is the right one for a database.
+- **Your runner's guarantees stay yours.** Nothing here competes with the tool
+  that already knows which migrations have run.
 
 ## If you use EF Core, use EF Core migrations
 
@@ -26,6 +59,37 @@ refusal to guess where EF would apply a convention, and SQL you read in a pull
 request rather than a generated C# class.
 
 [ef]: https://learn.microsoft.com/ef/core/
+
+## If your tables already say more than a Schema can, keep writing SQL
+
+A `Schema` describes a **value**. A database schema can hold a great deal that no
+value description implies: row-level check constraints spanning several columns,
+triggers, partial indexes, `COMMENT ON` explaining why a column exists at all.
+
+An application with a mature hand-written database schema is not a candidate for
+retrofitting this. You would derive the easy three quarters and hand-maintain the
+rest, and now the rules live in two places — which is the drift this suite exists
+to prevent, reintroduced by the tool meant to prevent it.
+
+A real example, from an accounting product with 35 tables:
+
+| | Count | Derivable from a `Schema`? |
+| --- | ---: | --- |
+| `NOT NULL` | 258 | Yes |
+| `CHECK` | 65 | About three quarters |
+| Foreign keys | 51 | Declared in mapping options |
+| Partial indexes | 12 | No |
+| Triggers | 9 | No |
+| `COMMENT ON` | 37 | No |
+
+The check constraints that do **not** derive are the cross-field row invariants:
+`total = subtotal + tax`, `(state = 'sent') = (sent_at is not null)`. No field's
+type implies either. (`Etymon.Invariants` expresses rules like these for values
+in your application; this package does not render them as SQL.)
+
+**Where this pays is a new application, started `Schema`-first**, before that
+divergence accumulates — so that the 258 `NOT NULL`s and most of the 65 checks
+were never written by hand in the first place.
 
 ## Ambiguity is an error, not a guess
 
@@ -132,12 +196,37 @@ round-trip tested by the same machinery as everything else, and a malformed
 snapshot is reported as `tables[0].columns[2].name: is required` rather than a
 stack trace.
 
+## Constraint changes are refused, not written
+
+**This version cannot express a constraint change as SQL.** Say a rule tightens
+from `Check.length (Some 1) (Some 100)` to `(Some 1) (Some 40)`: the diff sees
+it, and refuses:
+
+```sql
+-- the rules on invoice.total differ between the two snapshots
+-- NOT GENERATED: the rules on invoice.total differ between the two snapshots, and
+-- this version cannot express a constraint change. Before: must be at least 0.
+-- After: must be between 1 and 1000000. Write the ALTER by hand, or recreate the
+-- constraint.
+```
+
+It is also listed in `migration.Unsupported`, so a build can fail on it rather
+than relying on somebody reading the file:
+
+```fsharp
+if not (List.isEmpty migration.Unsupported) then
+    failwith "this migration is incomplete; see the NOT GENERATED notes"
+```
+
+This used to be silent, and silence was the dangerous part: a changed `CHECK`
+produced no change at all, so the script looked complete, the reviewer approved
+it, and the database went on enforcing the old rule. A refusal is worse than a
+correct answer and far better than nothing.
+
 ## Known limitations
 
-- **Diffing does not yet compare constraints.** They are recorded in the
-  snapshot, so the data is there, but a changed `CHECK` will not appear as a
-  change. Column additions, removals, type changes, nullability and uniqueness
-  all do.
+- **Constraint changes are reported but not generated.** See the section above;
+  this is the one to know about if your tables carry meaningful `CHECK`s.
 - **Foreign keys and uniqueness are inputs, not derivations.** A schema cannot
   express them, so they come from `TableOptions`.
 - **One schema makes one table.** Modelling a nested record as its own table with

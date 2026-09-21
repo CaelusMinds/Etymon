@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Event shapes derived from an Etymon Schema, committed as a snapshot and compared for compatibility in both directions: can new code read events already written, and can already-deployed code read events written by new code. Pure and driver-free. It never emits SQL, never opens a connection, and never proposes rewriting an event, because the events already written are the one irreplaceable thing in the system.</Description>
+    <PackageTags>$(PackageTags);event-sourcing;events;compatibility;upcasting;schema-evolution</PackageTags>
+    <EtymonAllowedReferences>Etymon.Core;Etymon.Schema</EtymonAllowedReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="EventShape.fs" />
+    <Compile Include="Snapshots.fs" />
+    <Compile Include="Compatibility.fs" />
+    <Compile Include="Upcasters.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Etymon.Core/Etymon.Core.fsproj" />
+    <ProjectReference Include="../Etymon.Schema/Etymon.Schema.fsproj" />
+  </ItemGroup>
+
+</Project>

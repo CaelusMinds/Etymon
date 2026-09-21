@@ -43,7 +43,7 @@ body:
         - Etymon.Invariants
         - Etymon.Invariants.FsCheck
         - Etymon.Config
-        - Etymon.Migrations
+        - Etymon.Schema.Sql
         - Etymon.Api
         - A new package
         - Not sure

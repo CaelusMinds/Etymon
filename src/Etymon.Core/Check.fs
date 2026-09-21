@@ -14,7 +14,7 @@ open System.Text.RegularExpressions
 /// The <c>Constraint</c> is data and the <c>Satisfies</c> function is behaviour. Every
 /// package downstream of Core reads the data and ignores the behaviour:
 /// <c>Etymon.Schema.OpenApi</c> turns it into a JSON Schema keyword,
-/// <c>Etymon.Migrations</c> into a SQL constraint, <c>Etymon.Invariants.FsCheck</c> into a
+/// <c>Etymon.Schema.Sql</c> into a SQL constraint, <c>Etymon.Invariants.FsCheck</c> into a
 /// generator. Keeping them in one value is what stops the two drifting apart.
 /// </remarks>
 [<NoEquality; NoComparison>]

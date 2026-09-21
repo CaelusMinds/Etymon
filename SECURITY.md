@@ -44,7 +44,7 @@ Etymon validates and decodes input, so the failure modes that matter most are:
   way around that timeout is in scope.
 - **Secrets in output.** Any route by which a `Secret<'T>` value reaches a log,
   an error message, a serialised payload or an exception.
-- **Generated SQL.** Any input to `Etymon.Migrations` that produces SQL an
+- **Generated SQL.** Any input to `Etymon.Schema.Sql` that produces SQL an
   attacker controls.
 
 Out of scope: vulnerabilities in .NET itself or in a dependency (report those

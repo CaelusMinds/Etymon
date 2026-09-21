@@ -23,8 +23,8 @@ Generate.valid personSchema             // only ever generates ages in range
 Config.load personSchema sources        // "age: expected an integer (from environment)"
 ```
 
-> **Status: pre-release.** All fourteen packages are built, and the thirteen with
-> code in them are tested — **810 tests**, run on both net8.0 and net10.0,
+> **Status: pre-release.** All fifteen packages are built, and the fourteen with
+> code in them are tested — **837 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Published to nuget.org as
 > `0.1.0-preview.3`; the API can still change, and a preview is where that should
@@ -46,10 +46,11 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 | **Etymon.Schema** | `Schema<'T>` — one value describing encode, decode, validate and document | Core |
 | **Etymon.Schema.OpenApi** | JSON Schema 2020-12 and OpenAPI 3.1 component schemas | Core, Schema |
 | **Etymon.Schema.TypeScript** | TypeScript declarations from the same schemas. Types only | Core, Schema |
+| **Etymon.Schema.Events** | Event shapes derived from a Schema, committed as a snapshot and compared for compatibility in both directions. Never rewrites an event | Core, Schema |
 | **Etymon.Invariants** | Rules that must always be true of a type, including the cross-field ones no single field can hold | Core |
 | **Etymon.Invariants.FsCheck** | Generators that produce only values a schema accepts, plus ones it should reject | Core, Schema, Invariants, FsCheck |
 | **Etymon.Config** | Configuration through a schema, reporting every problem at once with what was expected and which source supplied it | Core, Base, Schema |
-| **Etymon.Migrations** | A relational model derived from a schema, snapshot diffing and SQL generation. Carries no database driver | Core, Schema |
+| **Etymon.Schema.Sql** | Renders a Schema as SQL: a table model, a snapshot diff, and a migration script. Drafts migrations; never runs them | Core, Schema |
 | **Etymon.Api** | HTTP endpoints described once: method, typed route, request, responses, typed failures. Performs no HTTP | Core, Base, Schema, Schema.OpenApi |
 | **Etymon.Api.Giraffe** | Serves an endpoint as a Giraffe `HttpHandler`, composing into the routing you already have | Api, Giraffe |
 | **Etymon.Api.AspNetCore** | Serves an endpoint on ASP.NET Core minimal-API routing, with no third-party web framework | Api, ASP.NET Core |
@@ -74,7 +75,7 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 - **"I have a rule that no single field can hold — an end date after a start
   date."** → `Etymon.Invariants`.
 - **"…and a database schema, reviewable in a pull request."** → add
-  `Etymon.Migrations` — but read the note about EF Core below first.
+  `Etymon.Schema.Sql` — but read the note about EF Core below first.
 - **"I already use Giraffe and want to keep it."** → `Etymon.Api` +
   `Etymon.Api.Giraffe`. Endpoints become `HttpHandler`s that compose into the
   `choose` you already have; your pipeline and existing routes do not change,
@@ -82,6 +83,9 @@ Install only what you need, or take the `Etymon` meta-package for all of it.
 - **"I want typed endpoints without Giraffe or any other F# web framework."**
   → `Etymon.Api` + `Etymon.Api.AspNetCore`. ASP.NET Core is the floor — Etymon
   is not a web server and will not become one.
+- **"My events are the schema, and my tables never change."** → `Etymon.Schema.Events`.
+  It compares event shapes across versions and refuses changes that would strand
+  events already written. It never opens a connection and never rewrites an event.
 - **"I only want to call someone else's API, or generate types for a frontend."**
   → `Etymon.Api` + `Etymon.Api.Client`, or `Etymon.Schema.TypeScript`. Neither
   needs a server at all.
@@ -117,7 +121,7 @@ accumulating validation and nothing else, FsToolkit is a smaller dependency.
 a migrations history table, `dotnet ef` tooling, a provider ecosystem.
 **If EF owns your schema, use EF migrations.** Having two things generate DDL
 means two sources of truth, which is exactly the drift Etymon exists to prevent.
-`Etymon.Migrations` is for stacks without an ORM — Dapper, raw ADO.NET,
+`Etymon.Schema.Sql` is for stacks without an ORM — Dapper, raw ADO.NET,
 F#-first — where the alternative is hand-writing DDL. It works on immutable F#
 records rather than mutable entity classes, refuses to guess where EF applies a
 convention, and produces SQL you review in a pull request rather than a
@@ -243,7 +247,7 @@ These are promises the build enforces, not just documents.
   derives anything. A rule Etymon cannot inspect is `Opaque`: still enforced,
   still documented, never silently half-derived.
 - **Ambiguity is an error, not a guess.** Where a derivation has to choose —
-  most sharply in `Etymon.Migrations`, where a nested record could be a foreign
+  most sharply in `Etymon.Schema.Sql`, where a nested record could be a foreign
   key, flattened columns or `jsonb` — Etymon refuses and asks rather than
   picking a default you would discover in production.
 - **The dependency graph is checked by the build.** `Etymon.Core` referencing a
@@ -294,6 +298,9 @@ local feed:
 - [**Why Etymon**](docs/why-etymon.md) — the same code without the library and
   with it, for every derivation, with the costs and the cases where it is the
   wrong choice.
+- [**Glossary**](docs/glossary.md) — one definition per term. Schema against database
+  schema, migration against runner, backward against forward. Read this before
+  arguing about a design.
 - [Guides](docs/guides.md) — describing a type, constraints as data, cross-field
   rules, endpoints as values, migrations, configuration.
 - [Decisions](docs/decisions.md) — why things are the way they are, and what was

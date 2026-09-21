@@ -38,7 +38,7 @@ Then the [guides](guides.html), and the reference below.
 | `Etymon.Invariants` | Rules no single field can hold |
 | `Etymon.Invariants.FsCheck` | Generators that produce only values a schema accepts |
 | `Etymon.Config` | Configuration through a schema, every problem at once, with provenance |
-| `Etymon.Migrations` | A relational model, snapshot diffing and SQL. Carries no database driver |
+| `Etymon.Schema.Sql` | A relational model, snapshot diffing and SQL. Carries no database driver |
 | `Etymon.Api` | HTTP endpoints described once. Performs no HTTP |
 | `Etymon.Api.Giraffe` | Serves an endpoint as a Giraffe `HttpHandler` |
 | `Etymon.Api.AspNetCore` | Serves an endpoint on minimal-API routing |

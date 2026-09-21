@@ -12,6 +12,7 @@
     <Compile Include="SchemaInfo.fs" />
     <Compile Include="Codec.fs" />
     <Compile Include="Schema.fs" />
+    <Compile Include="ConstraintCodec.fs" />
   </ItemGroup>
 
   <ItemGroup>

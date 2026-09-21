@@ -1,10 +1,10 @@
-module Etymon.Migrations.Tests.ScriptTests
+module Etymon.Schema.Sql.Tests.ScriptTests
 
 open Expecto
 open Microsoft.Data.Sqlite
 open Etymon
 open Etymon.Tests
-open Etymon.Migrations.Tests.Domain
+open Etymon.Schema.Sql.Tests.Domain
 
 /// Runs SQL against a real in-memory SQLite database. A generated statement that
 /// nobody executes is a string that looks like SQL.
@@ -39,6 +39,21 @@ let private widened =
             |> List.map (fun c ->
                 if c.Name = "name" then
                     { c with Type = SqlType.Text }
+                else
+                    c
+            )
+    }
+
+/// The same table with a tightened rule on `name`, and nothing else changed.
+let private tightened =
+    { personTable with
+        Columns =
+            personTable.Columns
+            |> List.map (fun c ->
+                if c.Name = "name" then
+                    { c with
+                        Constraints = [ Constraint.Length(Some 1, Some 40) ]
+                    }
                 else
                     c
             )
@@ -115,6 +130,46 @@ let tests =
 
                     test "no change is no changes" {
                         Expect.equal (Diff.plan personSnapshot personSnapshot) [] "nothing to do"
+                    }
+
+                    test "a changed rule is reported even though it cannot be written" {
+                        // The hazard this exists for: a tightened CHECK used to
+                        // produce no change at all. The script looked finished,
+                        // the reviewer approved it, and the database went on
+                        // enforcing the old rule. Silence was the failure mode.
+                        let changes = Diff.plan personSnapshot (SqlModel.snapshotOf [ tightened ])
+
+                        match changes with
+                        | [ Change.ConstraintsDiffer(table, column, before, after) as change ] ->
+                            Expect.equal table "Person" "the table is named"
+                            Expect.equal column "name" "and the column"
+                            Expect.equal before [ Constraint.Length(Some 1, Some 100) ] "the rule it had"
+                            Expect.equal after [ Constraint.Length(Some 1, Some 40) ] "and the tighter one it has"
+                            Expect.isFalse (Diff.isDestructive change) "nothing is emitted, so nothing is lost"
+                        | other -> failtestf "expected the difference to be reported, got %A" other
+                    }
+
+                    test "the script refuses in writing rather than omitting it" {
+                        let migration =
+                            Migrations.between Dialect.postgres personSnapshot (SqlModel.snapshotOf [ tightened ])
+
+                        Expect.stringContains migration.Up "NOT GENERATED" "the script says it did not write it"
+                        Expect.stringContains migration.Up "Person.name" "and names what it skipped"
+
+                        Expect.isNonEmpty
+                            migration.Unsupported
+                            "and it is listed, so a caller can fail a build on it rather than read for it"
+                    }
+
+                    test "the down script refuses the same way as the up script" {
+                        // A constraint change is reversible in principle, so it
+                        // must not silently vanish from the down script either.
+                        let migration =
+                            Migrations.between Dialect.postgres personSnapshot (SqlModel.snapshotOf [ tightened ])
+
+                        match migration.Down with
+                        | Some down -> Expect.stringContains down "NOT GENERATED" "the same refusal, going back"
+                        | None -> failtest "a constraint difference should not make the migration irreversible"
                     }
 
                     test "tables are created before they are altered and dropped last" {

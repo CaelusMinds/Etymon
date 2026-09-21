@@ -39,7 +39,7 @@ type CollectionStrategy =
 /// The decisions Etymon will not make for you.
 /// </summary>
 /// <remarks>
-/// A serialisation schema says nothing about primary keys, foreign keys, or how
+/// A Schema says nothing about primary keys, foreign keys, or how
 /// a nested value should be stored. Deriving a table from one therefore means
 /// guessing, and a guess that is wrong often enough poisons trust in everything
 /// else the suite generates. So the ambiguous decisions are inputs, and leaving
@@ -47,36 +47,36 @@ type CollectionStrategy =
 /// </remarks>
 type TableOptions =
     {
-        /// The table name. Defaults to the schema's name when absent.
+        /// The table name. Defaults to the Schema's name when absent.
         TableName: string option
         /// The columns forming the primary key. Required: Etymon will not invent
         /// one, and a table without a key is a problem worth being told about.
         PrimaryKey: string list
-        /// What to do with nested objects. Required only if the schema has any.
+        /// What to do with nested objects. Required only if the Schema has any.
         Nested: NestedStrategy option
-        /// What to do with lists. Required only if the schema has any.
+        /// What to do with lists. Required only if the Schema has any.
         Collections: CollectionStrategy option
         /// Column types to use instead of the derived one, by column name.
         TypeOverrides: Map<string, SqlType>
-        /// Uniqueness rules, which a schema cannot express.
+        /// Uniqueness rules, which a Schema cannot express.
         Unique: UniqueConstraint list
-        /// References to other tables, which a schema cannot express either.
+        /// References to other tables, which a Schema cannot express either.
         ForeignKeys: ForeignKey list
     }
 
-/// Why a schema could not be turned into a table.
+/// Why a Schema could not be turned into a table.
 [<RequireQualifiedAccess>]
 type MappingError =
-    /// The schema has a nested object and the options did not say what to do
+    /// The Schema has a nested object and the options did not say what to do
     /// with it.
     | NestedNotDecided of path: string
-    /// The schema has a list and the options did not say what to do with it.
+    /// The Schema has a list and the options did not say what to do with it.
     | CollectionNotDecided of path: string
     /// No primary key was given.
     | NoPrimaryKey of table: string
     /// The primary key names a column the table does not have.
     | UnknownKeyColumn of table: string * column: string
-    /// The schema is not a record, so there is nothing to make a table from.
+    /// The Schema is not a record, so there is nothing to make a table from.
     | NotATable of what: string
     /// The schema contains something no table can hold.
     | Unsupported of path: string * what: string

@@ -121,3 +121,42 @@ else. All output goes to `artifacts/`, packages to `artifacts/packages`.
 | CI | `.github/workflows/` is empty. `ContinuousIntegrationBuild` already keys off `CI=true`. |
 | The documentation site | `fsdocs-tool` is pinned; `docs/` has no fsdocs input yet. |
 | Which packages follow `Etymon.Schema` | Named in doc comments and package tags: JSON Schema, OpenAPI, SQL, generators. No boundaries drawn. |
+
+## What Etymon will not take, and why
+
+Recorded so that good work is not folded in by accident. Both of the following
+came out of building an event-sourced accounting product alongside this suite;
+both are genuinely missing from the F# ecosystem, and neither belongs here.
+
+**A transactional outbox** — delivery policy, backoff, the ambiguous-send case,
+claim-by-lease.
+
+**A recurrence and cadence model** — recurrence shapes as a union with correct
+daylight-saving handling: clocks-forward runs at the first valid instant,
+clocks-back runs once, because the occurrence key is wall-clock time.
+
+Both are runtime machinery. Neither derives anything from a type, so both break
+the thesis this suite is built on — *define the type once, derive everything
+else* — and admitting either would change what Etymon is. They belong in a
+general platform library.
+
+The only derivation angle on cadence is rendering a recurrence as a cron string
+or as English ("every second Tuesday"), and that is too thin to justify a
+package.
+
+## Etymon.Core and Etymon.Base do not distinguish themselves by name
+
+**Open, not settled.** A reader cannot guess which of the two holds what, which
+is the same defect as a package named for something it does not do — just
+cheaper, because nothing outside the suite depends on knowing.
+
+Today the split is: `Etymon.Core` holds what the rest of the suite derives from
+(paths, the constraint vocabulary, the error model, refined types, parsing);
+`Etymon.Base` holds an F#-idiomatic layer over the .NET base library (strings,
+dictionaries, environment variables, file IO) that nothing else in the suite
+depends on. That is a real distinction and the names do not carry it.
+
+The options are to merge them, or to rename so the split is legible. Neither has
+been done, because the rename that would make it legible has not been found.
+This is recorded so that it is a known debt rather than a thing each new reader
+rediscovers.

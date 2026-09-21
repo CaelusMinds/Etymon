@@ -82,7 +82,7 @@ its own invariants is something a reviewer — or a test — can notice.
 
 `Invariants.rules` hands back the list. That is what lets other packages read
 them: `Etymon.Invariants.FsCheck` generates values that satisfy them,
-`Etymon.Migrations` can turn the expressible ones into database checks, and
+`Etymon.Schema.Sql` can turn the expressible ones into database checks, and
 documentation can list them without restating anything.
 
 A rule written inline inside a constructor is a rule nothing else can see.

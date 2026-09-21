@@ -70,7 +70,7 @@ Email.refinement.Constraints
 ```
 
 This list is the point of the whole suite. `Etymon.Schema.OpenApi` turns it into
-JSON Schema keywords, `Etymon.Migrations` into SQL constraints,
+JSON Schema keywords, `Etymon.Schema.Sql` into SQL constraints,
 `Etymon.Invariants.FsCheck` into generators — all reading the same rules rather
 than restating them. A rule Etymon cannot inspect is `Opaque`: enforced and
 documented, but never half-derived into something that looks right and is not.

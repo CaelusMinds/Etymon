@@ -1,6 +1,6 @@
 /// Schemas covering each shape the mapper has to have an answer for: flat,
 /// nested, optional-nested, and one with a collection.
-module Etymon.Migrations.Tests.Domain
+module Etymon.Schema.Sql.Tests.Domain
 
 open Etymon
 
