@@ -10,6 +10,7 @@
     <Compile Include="Shape.fs" />
     <Compile Include="Snapshots.fs" />
     <Compile Include="Compatibility.fs" />
+    <Compile Include="Unresolved.fs" />
     <Compile Include="Events.fs" />
     <Compile Include="Wire.fs" />
   </ItemGroup>
