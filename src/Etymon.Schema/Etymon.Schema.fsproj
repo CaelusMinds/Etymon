@@ -6,6 +6,19 @@
     <!-- System.Text.Json ships in the shared framework for both target
          frameworks, so it is an in-box API here rather than a dependency. -->
     <EtymonAllowedReferences>Etymon.Core</EtymonAllowedReferences>
+
+    <!--
+      Nullness is on for this package alone. WireField exists to cross records
+      that arrived nullable, so its signatures have to say so. A getter typed
+      'T -> string is a compile error at every call site in a consumer that has
+      nullness enabled, which is precisely the audience the module is for.
+
+      Not on suite-wide: the flow analysis that makes isNull narrow a binding
+      needs FSharp.Core 9, and Etymon compiles against 8.0.100 on purpose so it
+      cannot use an API newer than the floor it asks consumers to take. The
+      syntax alone works at 8.0.100, which is all this package needs.
+    -->
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

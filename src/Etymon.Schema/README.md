@@ -156,7 +156,9 @@ Without that rule the first question on every single type is "should this be
 required?", the answer is a judgement each time, and it drifts across a
 codebase. With it, the conversion is transcription.
 
-`WireField` is the crossing, so `Option.ofObj` does not appear at every field:
+**`WireField` crosses in both directions.** The getter takes the nullable form,
+and the value bound in the expression is the nullable form too — so the record is
+rebuilt by naming its fields, with no `Option.toObj` at any of them:
 
 ```fsharp
 let createBill =
@@ -164,9 +166,15 @@ let createBill =
         let! billNumber = WireField.text "billNumber" (fun r -> r.BillNumber)
         and! vendorId   = WireField.guid "vendorId" (fun r -> r.VendorId)
         and! lines      = WireField.array "lines" lineSchema (fun r -> r.Lines)
-        return { ... }
+        return { BillNumber = billNumber; VendorId = vendorId; Lines = lines }
     }
 ```
+
+A crossing that only went one way would remove the smaller half of the work: the
+reads would be clean and every field of the `return` would carry a conversion
+back. The signatures are annotated for F# nullness, so this compiles unchanged in
+a project with `<Nullable>enable</Nullable>` — which is the audience the module
+exists for.
 
 **`WireField.text` is not a shorter spelling of `Schema.optional`.** They say
 different things: `Schema.optional` says *this key may be absent*, which is a
@@ -179,6 +187,18 @@ it mattered.
 Constraints still apply through the crossing: `WireField.constrainedText` takes a
 `ConstraintCheck` and enforces it, which is the point of going through a `Schema`
 at all.
+
+Two things the collection fields decide for you, both deliberate:
+
+- **A null collection and an absent key are the same thing**, and both read as
+  empty. `WireField.array` binds an empty array rather than null, so it assigns
+  straight into a nullable field and no call site needs a guard. Where the
+  difference between *absent* and *empty* genuinely carries meaning, say so
+  explicitly with `Schema.required`.
+- **`WireField.dictionary` takes `IDictionary<string, 'V>` and hands back a
+  `Dictionary<string, 'V>`.** Taking the interface means a record holding either
+  satisfies it; handing back the concrete type means it assigns into the usual
+  `Dictionary` field without a cast.
 
 ## Design notes
 

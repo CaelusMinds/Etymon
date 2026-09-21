@@ -285,7 +285,17 @@ module Schema =
     let raw: Schema<JsonNode> =
         prim
             PrimKind.Raw
-            (fun w (v: JsonNode) -> if isNull v then w.WriteNullValue() else v.WriteTo w)
+            // ReferenceEquals rather than isNull: JsonNode.Parse can hand back
+            // a null at run time even though the type does not admit one, and
+            // writing it as JSON null is the only sensible reading. Saying so
+            // through the type would mean Schema<JsonNode | null>, which every
+            // caller would then have to carry.
+            (fun w (v: JsonNode) ->
+                if obj.ReferenceEquals(v, null) then
+                    w.WriteNullValue()
+                else
+                    v.WriteTo w
+            )
             (fun _ _ element -> Ok(JsonNode.Parse(element.GetRawText())))
 
     // ---- metadata ------------------------------------------------------------

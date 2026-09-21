@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!--
+      Nullness on, because WireField exists for consumers who have it on. With
+      it off, a getter typed 'T -> string compiles here and fails at every call
+      site in the audience the module is for, which is exactly what shipped in
+      preview.5.
+    -->
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="Domain.fs" />
     <Compile Include="SchemaTests.fs" />

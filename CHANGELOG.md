@@ -13,6 +13,44 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+
+## [0.1.0-preview.7]
+
+### Fixed
+
+- **`WireField` could not take a nullable field, which is the only kind it is
+  for.** The getters shipped in preview.5 typed as `'T -> string`, `'T -> 'F[]`.
+  Against a record whose fields are not annotated that compiles; against the
+  records `System.Text.Json` actually produces, in a project with
+  `<Nullable>enable</Nullable>`, every call site failed FS3261. The module exists
+  to serve exactly the projects it would not compile in.
+
+  The getters are now annotated -- `'T -> string | null`, `'T -> 'F[] | null`,
+  `'T -> IDictionary<string, 'V> | null` -- and `Etymon.Schema` compiles with
+  nullness enabled so the annotations are checked rather than decorative.
+
+- **The crossing now goes both ways.** Previously the getter read the nullable
+  form and the expression bound an `option`, so the reads were clean and every
+  field of the `return` carried an `Option.toObj` back. That removes the smaller
+  half of the work. `WireField.text` now binds `string | null`, `WireField.int`
+  binds `Nullable<int>`, `WireField.array` binds an array -- the record is
+  rebuilt by naming its fields and nothing else.
+
+### Notes
+
+Two decisions the collection fields make, unchanged but now documented:
+
+- A null collection and an absent key both read as empty, and the bound value is
+  an empty collection rather than null, so no call site needs a guard. Where the
+  distinction carries meaning, state it with `Schema.required`.
+- `WireField.dictionary` takes `IDictionary<string, 'V>` and hands back a
+  `Dictionary<string, 'V>`: the interface going in so either field type
+  satisfies it, the concrete type coming back so it assigns without a cast.
+
+Nullness is enabled on `Etymon.Schema` and its tests, not suite-wide. The syntax
+compiles against the pinned FSharp.Core 8.0.100, but the narrowing helpers
+(`nonNull`, `NonNull`) need FSharp.Core 9, and 8.0.100 is the deliberate consumer
+floor. The test project has it enabled because that is the audience being tested.
 ## [0.1.0-preview.6]
 
 ### Fixed
