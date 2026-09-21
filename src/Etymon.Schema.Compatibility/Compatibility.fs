@@ -48,8 +48,9 @@ type ShapeChange =
 /// </summary>
 /// <remarks>
 /// A removal plus an addition is indistinguishable from a rename, and the
-/// difference decides whether stored events can be read at all. This package
-/// refuses to guess, so a rename is something you say.
+/// difference decides whether shapes already written can be read at all --
+/// stored events for one policy, bodies already sent for the other. This
+/// package refuses to guess, so a rename is something you say.
 /// </remarks>
 [<NoComparison>]
 type Rename =

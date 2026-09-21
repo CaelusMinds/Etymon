@@ -127,6 +127,46 @@ let tests =
                             Expect.stringContains problem.Message "'supplierId'" "and what arrived"
                         | other -> failtestf "expected the rename to be refused, got %A" other
                     }
+
+                    test "a request refusal talks about bodies, never about stored events" {
+                        // The checks are shared with the event policy and the
+                        // words are not. A reader looking at an HTTP body who is
+                        // told the question is whether stored events can be read
+                        // is being pointed at a system they do not have.
+                        let renamed = shape "CreateBillRequest" 2 [ field "supplierId" text true ]
+
+                        match Wire.unresolvedRequests [] [] (snap createV1) (snap renamed) with
+                        | [ problem ] ->
+                            Expect.stringContains problem.Message "bodies already sent" "the wire noun"
+
+                            Expect.isFalse
+                                (problem.Message.Contains "stored events")
+                                "and not the event one, which is what leaked before"
+                        | other -> failtestf "expected the rename to be refused, got %A" other
+                    }
+
+                    test "a stranded request version is stranded bodies, not stranded storage" {
+                        let v3 = shape "CreateBillRequest" 3 [ field "vendorId" text true ]
+                        let snapshot = ShapeSnapshot.of' [ createV1; v3 ]
+
+                        match Wire.unresolvedRequests [] [] (snap createV1) snapshot with
+                        | problems ->
+                            let text = Wire.reportUnresolved problems
+                            Expect.stringContains text "bodies already sent" "named for what a request is"
+
+                            Expect.isFalse (text.Contains "stored shapes") "not for what an event store holds"
+                    }
+
+                    test "the event policy is unchanged by all this" {
+                        // The shared check took a parameter; the event wording it
+                        // used to hard-code is still exactly what Events emits.
+                        let renamed = shape "CreateBillRequest" 2 [ field "supplierId" text true ]
+
+                        match Events.undeclaredRenames [] (snap createV1) (snap renamed) with
+                        | [ problem ] ->
+                            Expect.stringContains problem.Message "whether stored events can be read" "unchanged"
+                        | other -> failtestf "expected the rename to be refused, got %A" other
+                    }
                 ]
 
             testList

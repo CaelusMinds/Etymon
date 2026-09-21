@@ -145,17 +145,40 @@ module Wire =
     /// same way they are for events.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Request bodies have versions and upcasters for the same reason events do.
     /// Response bodies have neither, which is why this takes only the request
     /// snapshot.
+    /// </para>
+    /// <para>
+    /// The checks are the same as the event ones and the wording is not. An
+    /// event's old shapes sit in your store; a request body's were already sent
+    /// by somebody's client. Telling a reader looking at an HTTP body that the
+    /// question is whether stored events can be read points them at a system
+    /// they do not have.
+    /// </para>
     /// </remarks>
+    /// <example><code lang="fsharp">
+    /// match Wire.unresolvedRequests upcasters renames previous current with
+    /// | [] -> ()
+    /// | problems -> failwith (Wire.reportUnresolved problems)
+    /// </code></example>
     let unresolvedRequests
         (upcasters: Upcaster list)
         (renames: Rename list)
         (before: ShapeSnapshot)
         (after: ShapeSnapshot)
         =
-        Events.check upcasters renames before after
+        Detect.renameAmbiguities "whether bodies already sent can be read" renames before after
+        @ Detect.strandedVersions "bodies already sent" upcasters after
+
+    /// <summary>The unresolved request items as prose, one paragraph each.</summary>
+    /// <remarks>
+    /// Here so that printing a wire outcome never goes through <c>Events</c>.
+    /// Reaching across for the renderer is how the event wording arrived in wire
+    /// verdicts in the first place.
+    /// </remarks>
+    let reportUnresolved (problems: Unresolved list) = Detect.report problems
 
     /// <summary>The verdicts as prose, one paragraph each.</summary>
     /// <remarks>
