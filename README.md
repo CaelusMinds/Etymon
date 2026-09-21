@@ -24,7 +24,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fourteen packages are built, and the thirteen with
-> code in them are tested — **736 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **750 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Nothing is on NuGet yet.
 
@@ -122,11 +122,16 @@ reflecting over them, which is a shorter route to a document if a document is
 all you want. Etymon's endpoints are values, so the same declaration also
 produces the client and the TypeScript, and the adapters register on routing you
 already have — one endpoint at a time, beside whatever else is mapped.
-`Etymon.Api.AspNetCore` does not currently attach Etymon's schemas to ASP.NET's
-own OpenAPI metadata; `ApiOpenApi` emits the document and you serve it. Wiring
-the two together is worth doing and has not been done. Fable.Remoting solves a
-different problem — RPC over shared F# types for a Fable client, with no routes
-or verbs — so the overlap is smaller than it looks.
+`Etymon.Api.AspNetCore` registers each endpoint with the metadata ASP.NET
+already understands — operation id, summary, tags, the request type, and every
+status the endpoint declares — so an application that already publishes a
+document gets Etymon endpoints in it without describing them a second time. What
+does **not** reach that document is the constraints, because ASP.NET builds its
+schemas by reflecting over the CLR type and the type does not know them:
+`ApiOpenApi` writes a document that carries them, and joining the two needs a
+document transformer and the OpenAPI package this adapter deliberately does not
+take. Fable.Remoting solves a different problem — RPC over shared F# types for a
+Fable client, with no routes or verbs — so the overlap is smaller than it looks.
 
 **Configuration — [FsConfig].** Etymon reports every problem at once, with what
 was expected and which source supplied it. FsConfig stops at the first.

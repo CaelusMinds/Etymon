@@ -4,4 +4,4 @@ open Expecto
 
 [<EntryPoint>]
 let main argv =
-    runTestsWithCLIArgs [] argv (testList "Etymon.Api.Integration" [ IntegrationTests.tests ])
+    runTestsWithCLIArgs [] argv (testList "Etymon.Api.Integration" [ IntegrationTests.tests; MetadataTests.tests ])

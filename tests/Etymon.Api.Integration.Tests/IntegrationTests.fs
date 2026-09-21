@@ -75,6 +75,8 @@ module Endpoints =
     let getUser =
         Api.get "getUser" (Route.one [ "users" ] (Param.guid "id") []) Contracts.userSchema
         |> Api.failsWith 404 Contracts.problemSchema "No user with that id"
+        |> Api.summary "Fetches one user by id"
+        |> Api.tag "Users"
 
     let createUser =
         Api.post "createUser" (Route.literal [ "users" ]) Contracts.newUserSchema Contracts.userSchema
@@ -151,7 +153,7 @@ let private startGiraffe () : IHost =
     host.Start()
     host
 
-let private startMinimalApi () : IHost =
+let startMinimalApi () : IHost =
     let host =
         Host
             .CreateDefaultBuilder()

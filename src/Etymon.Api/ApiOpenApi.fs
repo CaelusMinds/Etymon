@@ -13,11 +13,16 @@ open System.Text.Json.Nodes
 /// from the way the server routes it, because both read the same value.
 /// </para>
 /// <para>
-/// This emits the document; serving it is the application's business. An
-/// application that already runs ASP.NET Core's own OpenAPI generation will have
-/// two documents until the two are wired together, which has not been done yet
-/// — feeding these schemas into that pipeline is a smaller ask than replacing
-/// it, and it is the obvious next thing for <c>Etymon.Api.AspNetCore</c>.
+/// This emits the document; serving it is the application's business.
+/// </para>
+/// <para>
+/// An application that already runs ASP.NET Core's own OpenAPI generation does
+/// not need this: <c>Etymon.Api.AspNetCore</c> registers each endpoint with the
+/// metadata ASP.NET understands, so the endpoints appear in that document
+/// already. What it cannot carry there is the constraints — ASP.NET reflects
+/// over the CLR type, and the type does not know them. Use this where the
+/// document must say <c>minLength</c> and <c>enum</c> rather than only
+/// <c>string</c>.
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]

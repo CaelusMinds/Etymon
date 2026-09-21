@@ -107,6 +107,69 @@ module MinimalApi =
         }
 
     /// <summary>
+    /// Tells ASP.NET what this endpoint is, in the vocabulary ASP.NET already
+    /// has.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Without this, an Etymon endpoint is a <c>RequestDelegate</c> on a route
+    /// and nothing else: it appears in ASP.NET's OpenAPI document — and in
+    /// anything else reading endpoint metadata — with no request type, no
+    /// response type and no statuses. An application that already publishes a
+    /// document would have to describe the endpoint a second time by hand, and
+    /// the second description is the one that goes stale.
+    /// </para>
+    /// <para>
+    /// Only what the framework understands natively is attached, so this needs
+    /// no OpenAPI package. The constraints a schema carries — lengths, ranges,
+    /// permitted values — do not reach the document this way, because ASP.NET
+    /// derives its schemas by reflecting over the CLR type and the type does not
+    /// know them. <c>ApiOpenApi</c> writes a document that does carry them. The
+    /// two are not yet joined, and joining them needs a document transformer,
+    /// which needs a dependency this package does not have.
+    /// </para>
+    /// </remarks>
+    let private describe (endpoint: Endpoint<'R, 'Req, 'Res>) (builder: RouteHandlerBuilder) =
+        let builder = builder.WithName(endpoint.OperationId)
+
+        let builder =
+            match endpoint.Summary with
+            | Some summary -> builder.WithSummary summary
+            | None -> builder
+
+        let builder =
+            match endpoint.Tags with
+            | [] -> builder
+            | tags -> builder.WithTags(Array.ofList tags)
+
+        // A request body is declared only where there is one: Accepts on a GET
+        // tells the document the endpoint takes a body it will never read.
+        let builder =
+            match endpoint.Request with
+            | Some _ -> builder.Accepts(typeof<'Req>, "application/json")
+            | None -> builder
+
+        // Every declared status, not just the successful one. A caller reading
+        // the document needs to know a 404 is possible as much as it needs to
+        // know a 200 is.
+        let mutable described = builder
+
+        for response in endpoint.Responses |> List.sortBy (fun r -> r.Status) do
+            described <-
+                if response.Status = endpoint.SuccessStatus then
+                    described.Produces(response.Status, typeof<'Res>, "application/json")
+                else
+                    described.Produces(response.Status)
+
+        // The adapter rejects a malformed body itself, before the handler runs,
+        // so 422 is part of the contract whether or not the endpoint declared
+        // it. Saying so is the difference between a caller handling it and a
+        // caller being surprised by it.
+        match endpoint.Request with
+        | Some _ -> described.Produces 422
+        | None -> described
+
+    /// <summary>
     /// Registers an endpoint that has no request body.
     /// </summary>
     /// <example><code lang="fsharp">
@@ -123,8 +186,11 @@ module MinimalApi =
         (run: 'R -> HttpContext -> Task<Handled<'Res>>)
         (routes: IEndpointRouteBuilder)
         =
+        // A Func rather than a RequestDelegate: the RequestDelegate overload of
+        // MapMethods returns the non-generic builder, which has no Accepts or
+        // Produces, and those are how the endpoint describes itself to ASP.NET.
         let handler =
-            RequestDelegate(fun ctx ->
+            Func<HttpContext, Task>(fun ctx ->
                 task {
                     match bindRoute endpoint ctx with
                     // ASP.NET matched the template but a value did not parse --
@@ -139,9 +205,8 @@ module MinimalApi =
                 :> Task
             )
 
-        routes
-            .MapMethods(Route.template endpoint.Route, [| HttpVerb.name endpoint.Verb |], handler)
-            .WithName(endpoint.OperationId)
+        routes.MapMethods(Route.template endpoint.Route, [| HttpVerb.name endpoint.Verb |], handler)
+        |> describe endpoint
 
     /// <summary>
     /// Registers an endpoint with a request body, which is decoded and validated
@@ -164,8 +229,11 @@ module MinimalApi =
             | None ->
                 failwithf "The endpoint '%s' has no request body; use MinimalApi.map instead." endpoint.OperationId
 
+        // A Func rather than a RequestDelegate: the RequestDelegate overload of
+        // MapMethods returns the non-generic builder, which has no Accepts or
+        // Produces, and those are how the endpoint describes itself to ASP.NET.
         let handler =
-            RequestDelegate(fun ctx ->
+            Func<HttpContext, Task>(fun ctx ->
                 task {
                     match bindRoute endpoint ctx with
                     | None ->
@@ -182,6 +250,5 @@ module MinimalApi =
                 :> Task
             )
 
-        routes
-            .MapMethods(Route.template endpoint.Route, [| HttpVerb.name endpoint.Verb |], handler)
-            .WithName(endpoint.OperationId)
+        routes.MapMethods(Route.template endpoint.Route, [| HttpVerb.name endpoint.Verb |], handler)
+        |> describe endpoint

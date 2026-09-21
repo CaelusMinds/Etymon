@@ -43,6 +43,25 @@ endpoint that never declared 418 raises, naming the statuses it did. A status
 the OpenAPI document omits and the generated client cannot handle is a bug in
 the handler, not something to forward.
 
+## It appears in your OpenAPI document
+
+An endpoint registers itself with the metadata ASP.NET already understands:
+operation id, summary, tags, the request type, and **every status it declares**,
+not just the successful one. An application that already publishes a document
+gets Etymon endpoints in it without describing them a second time — and a
+hand-written second description is the one that goes stale.
+
+The 422 the adapter produces for a body the schema refuses is declared too, even
+though the endpoint never mentions it. It is part of the contract whether or not
+anyone wrote it down, and a caller meeting it for the first time in production is
+the alternative.
+
+What does not reach that document is the constraints. ASP.NET builds its schemas
+by reflecting over the CLR type, and the type does not know that `role` is one of
+three strings. `ApiOpenApi` writes a document that does carry them; joining the
+two needs a document transformer, and that needs an OpenAPI package this one
+deliberately does not take.
+
 ## Tested against the real thing
 
 The adapter is exercised end to end through `Microsoft.AspNetCore.TestHost`:
