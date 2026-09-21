@@ -45,9 +45,14 @@ from the tag and passes it to `build` and `pack`, so the tag and the package
 version cannot disagree.
 
 ```bash
-git tag v0.1.0-preview.6
-git push origin v0.1.0-preview.6
+git tag v0.1.0-preview.7
+git push origin v0.1.0-preview.7
 ```
+
+`origin` here means whichever remote is `CaelusMinds/Etymon`. A clone that also
+has a personal fork will usually have that fork as `origin`, and a tag pushed
+there runs nothing -- the workflow, the environment and the publishing identity
+all live on the CaelusMinds repository. Check `git remote -v` before tagging.
 
 `VersionPrefix` in `Directory.Build.props` must match the tag's prefix, or the
 workflow stops before building.
@@ -82,7 +87,7 @@ Previews are not restored by default. A consumer either asks for the version
 explicitly:
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.6" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.7" />
 ```
 
 or, with central package management, pins it in `Directory.Packages.props`.
