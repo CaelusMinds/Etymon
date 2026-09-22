@@ -42,11 +42,18 @@ jobs:
       # stale one means the public surface changed and its diff -- which is the
       # API change, and the thing review is for -- was never committed. See
       # Directory.Build.targets at the root.
+      #
+      # Compared as content, not stat data. The compiler writes CRLF and the
+      # repository stores LF; on the Windows runner git status reported every
+      # file modified on that basis alone while git diff showed no change. The
+      # untracked check is for a new package whose surface was never added.
       - name: Public surface is committed
         shell: bash
         run: |
-          if [ -n "$(git status --porcelain -- 'src/*/Surface.fsi')" ]; then
+          untracked=$(git ls-files --others --exclude-standard -- 'src/*/Surface.fsi')
+          if [ -n "$untracked" ] || ! git diff --quiet -- 'src/*/Surface.fsi'; then
             git --no-pager diff -- 'src/*/Surface.fsi'
+            if [ -n "$untracked" ]; then echo "Never committed: $untracked"; fi
             echo "::error::The public surface changed and src/*/Surface.fsi is stale. Build locally, review the diff (it is the API change), and commit it."
             exit 1
           fi
