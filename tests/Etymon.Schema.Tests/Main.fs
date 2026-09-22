@@ -4,4 +4,7 @@ open Expecto
 
 [<EntryPoint>]
 let main argv =
-    runTestsWithCLIArgs [] argv (testList "Etymon.Schema" [ SchemaTests.tests; WireFieldTests.tests ])
+    runTestsWithCLIArgs
+        []
+        argv
+        (testList "Etymon.Schema" [ SchemaTests.tests; WireFieldTests.tests; RequestFieldTests.tests ])

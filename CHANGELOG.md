@@ -13,6 +13,24 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.13]
+
+### Added
+
+- **`RequestField`** (#24): the other direction of `WireField`. Since
+  preview.10 `WireField` describes a nullable record field as what is
+  *written* — present and null, required with a nullable type. A request body
+  is *read*, leniently, so the honest description of the same field is optional
+  and nullable, and nothing in the library said so; one consumer wrote the
+  module itself and moved seventy fields onto it. It is beside `WireField` now,
+  with the same members and signatures, built on `Schema.defaulted` with a null
+  fallback so the document says `"default": null` — which is why it waited for
+  #21. A DTO shared by both directions is described twice, once each way, and
+  neither is the other's misuse. `requiredArray` and `requiredDictionary` are
+  `WireField`'s, because required is required both ways.
+
+No breaking changes.
+
 ## [0.1.0-preview.12]
 
 Two defects from the same adoption, in the derivations. No public signature

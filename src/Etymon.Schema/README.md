@@ -214,6 +214,30 @@ WireField.nullable "cadence"  cadenceSchema                          (fun r -> r
 WireField.nullable "password" (Schema.string |> Schema.sensitive)    (fun r -> r.Password)
 ```
 
+**A request body is the other direction.** `WireField` is what you *write*.
+What you *accept* is read leniently — absent and null are the same thing — so
+the honest description of the same field is optional and nullable. That is
+`RequestField`: the same members, the same signatures, the same crossing, and a
+description that differs in one word. A request file uses one module, a
+response file the other, and a DTO shared by both is described twice, once each
+way, so that neither direction is the other's misuse:
+
+```fsharp
+let createBillRequest =                                       // what you accept
+    Schema.object "CreateBillRequest" {
+        let! billNumber = RequestField.text "billNumber" (fun r -> r.BillNumber)
+        and! lines      = RequestField.array "lines" lineSchema (fun r -> r.Lines)
+        return { BillNumber = billNumber; Lines = lines }
+    }
+```
+
+Coming in, `billNumber` is optional and nullable, with `"default": null` in the
+document; going out through `WireField` it is required and nullable. A
+collection coming in additionally admits null, because a request may send it;
+going out it never does. `RequestField.requiredArray` and
+`requiredDictionary` are `WireField`'s, because required is required in both
+directions.
+
 **Reach for `WireField` because a field is nullable, never because it is a
 collection.** `WireField.array` and `WireField.dictionary` take the nullable
 collection a deserialiser leaves and hand back a non-null one, so no call site
