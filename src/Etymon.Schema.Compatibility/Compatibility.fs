@@ -172,16 +172,51 @@ module Compatibility =
                         | FieldType.Choice(beforeName, _), FieldType.Choice(afterName, _) -> beforeName = afterName
                         | _ -> false
 
+                    // A type change that only adds null, at any depth, is a
+                    // widening: everything already written still reads, so it
+                    // breaks only the forward direction -- code that expected
+                    // never to see null. Removing null is the mirror image.
+                    // Anything else is a change of type, and breaks both ways.
+                    let rec widensByNull (before: FieldType) (after: FieldType) =
+                        before = after
+                        || (
+                            match before, after with
+                            | FieldType.Nullable b, FieldType.Nullable a -> widensByNull b a
+                            | _, FieldType.Nullable a -> widensByNull before a
+                            | FieldType.Sequence b, FieldType.Sequence a -> widensByNull b a
+                            | FieldType.Mapping b, FieldType.Mapping a -> widensByNull b a
+                            | _ -> false
+                        )
+
                     [
                         if beforeField.Type <> afterField.Type && not sameUnionDifferentCases then
-                            change
-                                event
-                                (Some afterField.Name)
-                                $"the type of '%s{afterField.Name}' changed"
-                                [
-                                    Direction.Backward, "what was already written holds the old type."
-                                    Direction.Forward, "already-deployed code expects the old type."
-                                ]
+                            if widensByNull beforeField.Type afterField.Type then
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"'%s{afterField.Name}' now admits null"
+                                    [
+                                        Direction.Forward,
+                                        "already-deployed code does not expect null here, and what is written now may carry it."
+                                    ]
+                            elif widensByNull afterField.Type beforeField.Type then
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"'%s{afterField.Name}' no longer admits null"
+                                    [
+                                        Direction.Backward,
+                                        "what was already written may hold null here, and nothing reads that now."
+                                    ]
+                            else
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"the type of '%s{afterField.Name}' changed"
+                                    [
+                                        Direction.Backward, "what was already written holds the old type."
+                                        Direction.Forward, "already-deployed code expects the old type."
+                                    ]
 
                         if beforeField.Required && not afterField.Required then
                             change

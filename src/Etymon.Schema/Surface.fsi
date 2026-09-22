@@ -159,6 +159,8 @@ namespace Etymon
           Description: string option
           
           /// The value used when the key is absent, already encoded.
+          /// A JSON <c>null</c> default is <c>Some null</c>: <c>System.Text.Json.Nodes</c>
+          /// has no other value for it, and a reader must not dereference it.
           Default: System.Text.Json.Nodes.JsonNode option
           
           /// Whether the field is a secret.

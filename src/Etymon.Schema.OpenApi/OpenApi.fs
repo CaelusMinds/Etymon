@@ -229,7 +229,11 @@ module OpenApi =
                 | _ -> ()
 
                 match field.Default with
-                | Some value when not (rendered.ContainsKey "default") -> rendered.Add("default", value.DeepClone())
+                | Some value when not (rendered.ContainsKey "default") ->
+                    // A JSON null default arrives as Some null, because
+                    // System.Text.Json.Nodes has no other value for it. It is a
+                    // default all the same: "default": null, not a crash.
+                    rendered.Add("default", (if isNull value then null else value.DeepClone()))
                 | _ -> ()
 
                 if field.Sensitive && not (rendered.ContainsKey "writeOnly") then

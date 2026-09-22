@@ -138,6 +138,8 @@ and [<NoComparison>] FieldInfo =
         /// Prose describing what the field means.
         Description: string option
         /// The value used when the key is absent, already encoded.
+        /// A JSON <c>null</c> default is <c>Some null</c>: <c>System.Text.Json.Nodes</c>
+        /// has no other value for it, and a reader must not dereference it.
         Default: JsonNode option
         /// Whether the field is a secret.
         Sensitive: bool

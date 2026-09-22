@@ -13,6 +13,30 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.12]
+
+Two defects from the same adoption, in the derivations. No public signature
+changes.
+
+### Fixed
+
+- **`OpenApi.toComponents` threw on a field whose default is null** (#21).
+  `Schema.defaulted` stores a JSON null default as `Some null`, because
+  `System.Text.Json.Nodes` has no other value for it, and the renderer
+  dereferenced it. It renders as `"default": null` now. This is the ordinary
+  shape of a request field a caller may leave out and a form may send as null.
+  Decoding, encoding and `Shape.ofSchema` were never affected.
+
+- **A request field coming to admit null was reported as a break for clients
+  already written** (#23). The matrix reported every type change as breaking in
+  both directions. A change that only adds null — `string` to `string | null`,
+  at any depth — is a widening: everything already written still reads, so it
+  breaks only forward, where already-deployed code may now meet a null.
+  Removing null is the mirror image. Because the fix is in the shared matrix,
+  both policies get it: `Wire.requests` no longer flags the widening,
+  `Wire.responses` still refuses it as the break with no remedy, and a stored
+  event that gains a nullable field is no longer a backward break either.
+
 ## [0.1.0-preview.11]
 
 One regression, introduced by preview.10 and reported within the hour.
