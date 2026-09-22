@@ -7,4 +7,11 @@ let main argv =
     runTestsWithCLIArgs
         []
         argv
-        (testList "Etymon.Schema.Compatibility" [ SnapshotTests.tests; CompatibilityTests.tests; WireTests.tests ])
+        (testList
+            "Etymon.Schema.Compatibility"
+            [
+                ShapeTests.tests
+                SnapshotTests.tests
+                CompatibilityTests.tests
+                WireTests.tests
+            ])
