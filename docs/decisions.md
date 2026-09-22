@@ -135,6 +135,13 @@ copy is stale.
 Ruled out: stating the return type in each `<summary>` by hand. It answers the
 question one function at a time and drifts the moment a signature changes.
 
+Two consequences of taking the compiler's output as it is. The printer includes
+members marked `private`, labelled as such; they are left in rather than stripped,
+because a post-processing step is a second thing that can disagree with the
+compiler. And the file is only written for one target framework, so dropping that
+framework from the build is `ETY0004`, a build error — otherwise the committed
+copy would go stale and the check would keep passing on stale content.
+
 ## Open
 
 | Question | State |
