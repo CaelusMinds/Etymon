@@ -43,6 +43,7 @@ You will meet these as build errors rather than review comments.
 | `ETY0001` | A shipping package that references other projects must declare `<EtymonAllowedReferences>`. |
 | `ETY0002` | A shipping package may only reference what it declared. |
 | `ETY0003` | A shipping package may not reference a test-only package. |
+| `ETY0004` | The framework `Surface.fsi` is written from must be one that is built; otherwise the committed surface would go stale silently. |
 
 If a rule is in your way, the answer may well be that the rule should change —
 say so in the pull request rather than setting `EtymonEnforceLayers=false` and

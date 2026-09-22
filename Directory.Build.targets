@@ -102,6 +102,18 @@
     <_EtymonWritesSurface Condition="'$(IsPackable)' == 'true' AND '$(IncludeBuildOutput)' != 'false'">true</_EtymonWritesSurface>
   </PropertyGroup>
 
+  <!-- A silent stop is the one failure this must not have. If the surface
+       framework is ever dropped from TargetFrameworks, nothing would write the
+       file, the committed copy would go stale, and the content check in CI
+       would pass on stale content forever. So the mismatch is a build error,
+       like the dependency rules above. -->
+  <Target Name="EtymonSurfaceFrameworkIsBuilt"
+          BeforeTargets="Build"
+          Condition="'$(_EtymonWritesSurface)' == 'true' AND '$(TargetFrameworks)' != '' AND !$([System.String]::Concat(';', '$(TargetFrameworks)', ';').Contains(';$(EtymonSurfaceFramework);'))">
+    <Error Code="ETY0004"
+           Text="$(MSBuildProjectName) targets '$(TargetFrameworks)', which does not include EtymonSurfaceFramework '$(EtymonSurfaceFramework)'. Surface.fsi would never be written again and the committed copy would go stale without anything noticing. Point EtymonSurfaceFramework in Directory.Build.targets at a framework that is built." />
+  </Target>
+
   <!-- Each framework writes to its own obj directory, so parallel inner builds
        never race on one file. -->
   <Target Name="EtymonRequestSurface"

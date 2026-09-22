@@ -256,7 +256,7 @@ These are promises the build enforces, not just documents.
   picking a default you would discover in production.
 - **The dependency graph is checked by the build.** `Etymon.Core` referencing a
   sibling, or a shipping package picking up a test-only dependency, is a build
-  error (`ETY0001`–`ETY0003`), not a code review note.
+  error (`ETY0001`–`ETY0004`), not a code review note.
 
 ## Getting started
 
