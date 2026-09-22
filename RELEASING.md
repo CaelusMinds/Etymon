@@ -45,8 +45,8 @@ from the tag and passes it to `build` and `pack`, so the tag and the package
 version cannot disagree.
 
 ```bash
-git tag v0.1.0-preview.7
-git push origin v0.1.0-preview.7
+git tag v0.1.0-preview.8
+git push origin v0.1.0-preview.8
 ```
 
 `origin` here means whichever remote is `CaelusMinds/Etymon`. A clone that also
@@ -87,7 +87,7 @@ Previews are not restored by default. A consumer either asks for the version
 explicitly:
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.7" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.8" />
 ```
 
 or, with central package management, pins it in `Directory.Packages.props`.

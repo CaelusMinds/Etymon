@@ -13,6 +13,76 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.8]
+
+Six defects reported from one adoption, across 22 request and 38 response
+shapes. Five are fixed here. Each was found by using the packages rather than by
+reading them, which is the only way most of these surface.
+
+### Fixed
+
+- **A required collection had no correct short path** (#6). A field typed
+  `Dictionary<string, string>` — non-nullable, always populated — could be
+  described by `WireField.dictionary`, which compiles, reads well, and describes
+  the field as **optional**. The correct form, `Schema.required` with
+  `Schema.map`, speaks `Map` where the record holds a `Dictionary`, so the caller
+  converts by hand in both directions. The correct path was the inconvenient one
+  and the incorrect path was silent.
+
+  preview.7 made it quieter: once the crossing started handing back non-null
+  collections, the wrong helper assigns cleanly into a non-nullable field and the
+  compiler has nothing to say. The wrong optionality then reaches the published
+  OpenAPI document as a nullability clients must handle, and the compatibility
+  snapshot as an optionality that makes removing the field later look safe when
+  it is breaking.
+
+  New: `WireField.requiredArray`, `WireField.requiredDictionary`. The rule, now
+  in the README: reach for `WireField` because a field is nullable, never because
+  it is a collection.
+
+- **A wire verdict about an HTTP request body said "stored events"** (#7).
+  preview.6 fixed this in the shared matrix and missed the other half:
+  `Wire.unresolvedRequests` delegated to `Events.check`, so it inherited the
+  event vocabulary wholesale. The two checks now sit below both policies and take
+  their noun from the policy. `Wire.reportUnresolved` is new, so printing a wire
+  outcome never routes through `Events`. Event output is byte-identical, and a
+  test asserts that.
+
+- **`WireField` had no member for a nullable field of an arbitrary `Schema`**
+  (#8). A nested object that may be null, a string carrying `Schema.sensitive`, a
+  `Schema.raw` payload — each fell back to the `Option.ofObj` / `Option.toObj`
+  pair the module exists to remove, at the fields where going through a `Schema`
+  matters most. `WireField.nullable` takes any `Schema`; `text` and
+  `constrainedText` are now defined in terms of it.
+
+- **`Shape.ofSchema` asked for a name the `Schema` already carried** (#9), from
+  two sources, with nothing checking they agree. A shape recorded under a
+  mismatched name diffs cleanly against itself forever and is never compared with
+  what it describes — the failure is silence.
+
+- **`Schema.OpenApi` could not assemble a document from many schemas** (#10), and
+  the obvious hand-rolled attempt silently breaks arrays: a lift that reads
+  `$ref` at the root finds nothing for a list, because an array carries its
+  `$ref` under `items`, and the response is described as an empty object. Valid
+  OpenAPI, green tests, no description. `OpenApi.toComponentsWithRoot` returns the
+  root already addressed at `#/components/schemas/`, so there is no rewriting
+  pass to get wrong.
+
+### Breaking
+
+- `Shape.ofSchema` loses its first parameter; the name comes from the `Schema`.
+  Callers wanting the old behaviour rename the call to `Shape.ofSchemaNamed` and
+  change nothing else. An unnamed `Schema` is now refused rather than recorded
+  under no name.
+
+### Still open
+
+- **Return types are invisible to a reader working from the package rather than
+  the source** (#11). The XML documentation carries summaries, remarks and
+  examples but not signatures, because .NET XML documentation has nowhere to put
+  them. The F#-native answer is `.fsi` signature files, which would also make the
+  public surface reviewable in its own right. That is a larger change than the
+  rest of this release and is not in it.
 
 ## [0.1.0-preview.7]
 
