@@ -72,7 +72,12 @@ namespace Etymon
           /// permissions, grants -- and narrowing it is the same break as narrowing
           /// a scalar's rules, so it is recorded the same way. One level: the
           /// elements of a list of lists are not reached.
-          ElementConstraints: Constraint list
+          ///
+          /// <c>None</c> means the snapshot this came from predates the key and
+          /// never recorded them, which is not the same as recording none:
+          /// nothing can be compared against it, so nothing is. <c>Some []</c>
+          /// is recorded, and empty.
+          ElementConstraints: Constraint list option
         }
     
     /// <summary>
@@ -256,7 +261,7 @@ namespace Etymon
         /// The format version of the snapshot file itself, so that a future change
         /// to the format can be recognised rather than guessed at.
         [<Literal>]
-        val FormatVersion: int = 1
+        val FormatVersion: int = 2
         
         val private fieldTypeSchema: Schema<FieldType>
         

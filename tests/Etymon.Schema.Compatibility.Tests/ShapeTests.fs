@@ -107,14 +107,18 @@ let tests =
                     shape.Fields |> List.find (fun f -> f.Name = name)
 
                 Expect.equal (field "reason").Constraints [ reasonRule ] "a scalar's rules, as before"
-                Expect.equal (field "reason").ElementConstraints [] "and no element rules"
+                Expect.equal (field "reason").ElementConstraints (Some []) "and none recorded on a scalar"
                 Expect.equal (field "reasons").Constraints [] "a sequence has no rules of its own"
-                Expect.equal (field "reasons").ElementConstraints [ reasonRule ] "its elements do"
+                Expect.equal (field "reasons").ElementConstraints (Some [ reasonRule ]) "its elements do"
             }
 
             test "element rules are found through a nullable list" {
                 let shape = Shape.ofSchema 1 suspendedSchema
                 let field = shape.Fields |> List.find (fun f -> f.Name = "history")
-                Expect.equal field.ElementConstraints [ reasonRule ] "a list that may itself be null still reports them"
+
+                Expect.equal
+                    field.ElementConstraints
+                    (Some [ reasonRule ])
+                    "a list that may itself be null still reports them"
             }
         ]

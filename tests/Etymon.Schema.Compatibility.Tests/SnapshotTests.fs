@@ -14,7 +14,7 @@ let private field name t required constraints : ShapeField =
         Type = t
         Required = required
         Constraints = constraints
-        ElementConstraints = []
+        ElementConstraints = Some []
     }
 
 /// One of every FieldType, so nothing in the union goes untested.
@@ -84,9 +84,9 @@ let tests =
             }
 
             test "a snapshot written before element rules existed still reads" {
-                // The key is defaulted: an old file's collections simply have no
-                // element rules recorded, which is what was true when it was
-                // written.
+                // The key is optional, not defaulted: an old file never recorded
+                // element rules, and that must read as "not recorded", never as
+                // "recorded none" -- the two diff differently.
                 let old =
                     """{"formatVersion":1,"shapes":[{"name":"A","version":1,"fields":[
                         {"name":"tags","type":{"kind":"sequence","value":{"kind":"scalar","value":"string"}},"required":true,"constraints":[]}]}]}"""
@@ -95,8 +95,34 @@ let tests =
                 | Ok snapshot ->
                     match ShapeSnapshot.tryLatest "A" snapshot with
                     | Some shape ->
-                        Expect.equal (List.head shape.Fields).ElementConstraints [] "read as none, not refused"
+                        Expect.equal
+                            (List.head shape.Fields).ElementConstraints
+                            None
+                            "read as not recorded, not refused"
                     | None -> failtest "the shape should be there"
                 | Error errors -> failtestf "an old snapshot should still read: %s" (ValidationErrors.format errors)
+            }
+
+            test "recorded-and-empty survives a round trip as recorded, not as unrecorded" {
+                // The distinction the whole fix rests on. Some [] is a snapshot
+                // that looked and found no rules; None is one that never looked.
+                let tags =
+                    { field "tags" (FieldType.Sequence(FieldType.Scalar "string")) true [] with
+                        ElementConstraints = Some []
+                    }
+
+                let shape: Shape =
+                    {
+                        Name = "A"
+                        Version = 1
+                        Fields = [ tags ]
+                    }
+
+                match ShapeSnapshots.fromJson (ShapeSnapshots.toJson (ShapeSnapshot.of' [ shape ])) with
+                | Ok snapshot ->
+                    match ShapeSnapshot.tryLatest "A" snapshot with
+                    | Some read -> Expect.equal (List.head read.Fields).ElementConstraints (Some []) "still recorded"
+                    | None -> failtest "the shape should be there"
+                | Error errors -> failtestf "should round-trip: %s" (ValidationErrors.format errors)
             }
         ]

@@ -57,7 +57,12 @@ type ShapeField =
         /// permissions, grants -- and narrowing it is the same break as narrowing
         /// a scalar's rules, so it is recorded the same way. One level: the
         /// elements of a list of lists are not reached.
-        ElementConstraints: Constraint list
+        ///
+        /// <c>None</c> means the snapshot this came from predates the key and
+        /// never recorded them, which is not the same as recording none:
+        /// nothing can be compared against it, so nothing is. <c>Some []</c>
+        /// is recorded, and empty.
+        ElementConstraints: Constraint list option
     }
 
 /// <summary>
@@ -178,7 +183,7 @@ module Shape =
                         Type = typeOf field.Schema
                         Required = field.Required
                         Constraints = SchemaInfo.constraints field.Schema
-                        ElementConstraints = elementConstraints field.Schema
+                        ElementConstraints = Some(elementConstraints field.Schema)
                     }
                 )
             | _ ->

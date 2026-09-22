@@ -13,6 +13,32 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.11]
+
+One regression, introduced by preview.10 and reported within the hour.
+
+### Fixed
+
+- **A snapshot written before element rules existed diffed as a narrowing on
+  every list field** (#20). preview.10 read the missing `elementConstraints`
+  key as `[]`, and `[]` is indistinguishable from "no rules" — so the first
+  comparison after upgrading reported a false narrowing on every list field
+  with item rules, with nothing to tell it from a real one. Six event shapes and
+  the same again on the wire, in one consumer.
+
+  "Not recorded" and "recorded none" are different facts and are now different
+  values: `ShapeField.ElementConstraints` is `Constraint list option`, `None`
+  for a snapshot that predates the key, and a comparison happens only when both
+  sides recorded. `Shape.ofSchema` always records. A written snapshot always
+  carries the key, and `formatVersion` is 2 to say so; version-1 files still
+  read.
+
+### Breaking
+
+- `ShapeField.ElementConstraints` changes type, one release after it was added:
+  `Constraint list` → `Constraint list option`. Code constructing `ShapeField`
+  by hand wraps the value in `Some`; code reading it matches on the option.
+
 ## [0.1.0-preview.10]
 
 Four more defects from the same adoption. One changes what goes on the wire,

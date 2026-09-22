@@ -25,7 +25,9 @@ module ShapeSnapshots =
     /// The format version of the snapshot file itself, so that a future change
     /// to the format can be recognised rather than guessed at.
     [<Literal>]
-    let FormatVersion = 1
+    // 2 added elementConstraints on every field. A version-1 file still reads;
+    // its fields simply have none recorded.
+    let FormatVersion = 2
 
     let private fieldTypeSchema: Schema<FieldType> =
         Schema.recursive
@@ -112,13 +114,15 @@ module ShapeSnapshots =
             and! constraints =
                 Schema.required "constraints" (Schema.list ConstraintCodec.schema) (fun f -> f.Constraints)
 
-            // Defaulted, so that every snapshot written before this key existed
-            // still reads: its collections simply had no element rules recorded.
+            // Optional, not defaulted. A snapshot written before this key existed
+            // never recorded element rules, and reading that as "recorded none"
+            // made the first diff after the upgrade a false narrowing on every
+            // list field with item rules. Absent reads as None; a written
+            // snapshot always carries the key.
             and! elementConstraints =
-                Schema.defaulted
+                Schema.optional
                     "elementConstraints"
                     (Schema.list ConstraintCodec.schema)
-                    []
                     (fun f -> f.ElementConstraints)
 
             return
