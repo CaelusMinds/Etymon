@@ -27,6 +27,33 @@ let tests =
         "OpenApi"
         [
             testList
+                "a null default"
+                [
+                    test "renders as null rather than crashing" {
+                        // Schema.defaulted stores a JSON null default as Some null,
+                        // because System.Text.Json.Nodes has no other value for
+                        // it. The renderer dereferenced it. This is the ordinary
+                        // shape of a request field a caller may leave out and a
+                        // form may send as null.
+                        let schema =
+                            Schema.object "R" {
+                                let! note =
+                                    Schema.defaulted
+                                        "note"
+                                        (Schema.nullable Schema.string)
+                                        None
+                                        (fun (r: string option) -> r)
+
+                                return note
+                            }
+
+                        let rendered = (OpenApi.toComponents schema).ToJsonString()
+                        Expect.stringContains rendered "\"default\":null" "stated as null"
+                        Expect.isNonEmpty (OpenApi.toComponentsWithRoot schema).Components "and the document assembles"
+                    }
+                ]
+
+            testList
                 "assembling a document from many schemas"
                 [
                     test "the root of an object is a reference into components" {

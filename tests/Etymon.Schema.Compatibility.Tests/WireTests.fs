@@ -196,4 +196,42 @@ let tests =
                             "rather than printing nothing at all"
                     }
                 ]
+
+            testList
+                "a field that comes to admit null"
+                [
+                    // Every body a client already sends holds a string or leaves
+                    // the key out, and both still read under string | null. On a
+                    // response it is the break with no remedy. The matrix says
+                    // which direction; the policies say what that means.
+                    test "is not a break for clients already written" {
+                        let before = snap (shape "OpenAccountRequest" 1 [ field "code" text false ])
+
+                        let after =
+                            snap (shape "OpenAccountRequest" 2 [ field "code" (FieldType.Nullable text) false ])
+
+                        Expect.isEmpty (Wire.requests [] before after) "what they already send still reads"
+                        Expect.isNonEmpty (Wire.responses [] before after) "but what they already read may now be null"
+                    }
+
+                    test "the reverse is a break for clients already written, and only them" {
+                        let before =
+                            snap (shape "OpenAccountRequest" 1 [ field "code" (FieldType.Nullable text) false ])
+
+                        let after = snap (shape "OpenAccountRequest" 2 [ field "code" text false ])
+                        Expect.isNonEmpty (Wire.requests [] before after) "a body already sent may hold null"
+                        Expect.isEmpty (Wire.responses [] before after) "and a client reading a string still can"
+                    }
+
+                    test "at any depth" {
+                        let before = snap (shape "R" 1 [ field "tags" (FieldType.Sequence text) true ])
+
+                        let after =
+                            snap (shape "R" 2 [ field "tags" (FieldType.Sequence(FieldType.Nullable text)) true ])
+
+                        Expect.isEmpty
+                            (Wire.requests [] before after)
+                            "elements that admit null still read what was sent"
+                    }
+                ]
         ]

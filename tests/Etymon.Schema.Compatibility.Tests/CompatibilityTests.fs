@@ -383,4 +383,53 @@ let tests =
                             "but recorded-and-empty against recorded rules is a real change"
                     }
                 ]
+
+            testList
+                "widening by null"
+                [
+                    test "adding null breaks only forward" {
+                        match
+                            changesFor
+                                (shape 1 [ field "a" text true [] ])
+                                (shape 2 [ field "a" (FieldType.Nullable text) true [] ])
+                        with
+                        | [ change ] ->
+                            Expect.stringContains
+                                change.Description
+                                "now admits null"
+                                "named as a widening, not a type change"
+
+                            Expect.equal
+                                (change.Breaks |> List.map fst)
+                                [ Direction.Forward ]
+                                "old code may meet a null; old data still reads"
+                        | other -> failtestf "expected one change, got %A" other
+                    }
+
+                    test "removing null breaks only backward" {
+                        match
+                            changesFor
+                                (shape 1 [ field "a" (FieldType.Nullable text) true [] ])
+                                (shape 2 [ field "a" text true [] ])
+                        with
+                        | [ change ] ->
+                            Expect.equal
+                                (change.Breaks |> List.map fst)
+                                [ Direction.Backward ]
+                                "old data may hold a null nothing reads"
+                        | other -> failtestf "expected one change, got %A" other
+                    }
+
+                    test "a different type still breaks both ways" {
+                        match
+                            changesFor (shape 1 [ field "a" text true [] ]) (shape 2 [ field "a" number true [] ])
+                        with
+                        | [ change ] ->
+                            Expect.equal
+                                (change.Breaks |> List.map fst |> List.sort)
+                                [ Direction.Backward; Direction.Forward ]
+                                "as before"
+                        | other -> failtestf "expected one change, got %A" other
+                    }
+                ]
         ]
