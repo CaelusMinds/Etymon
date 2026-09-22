@@ -66,15 +66,58 @@ module WireField =
             ReadFields = fun mode path element -> part.ReadFields mode path element |> Validation.map convert
         }
 
+    // ---- any schema at all ---------------------------------------------------
+
+    /// <summary>
+    /// A nullable field of any <c>Schema</c>. Everything below is a convenient
+    /// specialisation of this.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The typed members cover what a deserialiser produces most of the time.
+    /// This covers the rest without the module having to know about it: a nested
+    /// object that may be null, a string carrying <c>Schema.sensitive</c>, a
+    /// <c>Schema.raw</c> passthrough. Without it those fall back to the
+    /// <c>Option.ofObj</c> / <c>Option.toObj</c> pair this module exists to
+    /// remove, at exactly the fields where going through a <c>Schema</c> matters
+    /// most.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// WireField.nullable "cadence" cadenceSchema (fun r -> r.Cadence)
+    /// WireField.nullable "password" (Schema.string |> Schema.sensitive) (fun r -> r.Password)
+    /// </code></example>
+    let nullable<'T, 'F when 'F: not struct and 'F: not null>
+        (name: string)
+        (schema: Schema<'F>)
+        (get: 'T -> 'F | null)
+        : ObjectPart<'T, 'F | null>
+        =
+        Schema.optional
+            name
+            schema
+            (fun value ->
+                // Not Option.ofObj. At the pinned FSharp.Core its constraint is
+                // `'T : null`, which an F# record does not satisfy, and the
+                // narrowing form arrived in FSharp.Core 9. Boxing and unboxing a
+                // reference is a no-op that needs neither.
+                match box (get value) with
+                | null -> None
+                | boxed -> Some(unbox<'F> boxed)
+            )
+        |> rebound (
+            function
+            | Some value -> value
+            | None -> Unchecked.defaultof<'F | null>
+        )
+
     // ---- reference types -----------------------------------------------------
 
     /// <summary>A nullable string, read and handed back as one.</summary>
     /// <example><code lang="fsharp">
     /// WireField.text "billNumber" (fun r -> r.BillNumber)
     /// </code></example>
-    let text (name: string) (get: 'T -> string | null) : ObjectPart<'T, string | null> =
-        Schema.optional name Schema.string (fun value -> Option.ofObj (get value))
-        |> rebound Option.toObj
+    let text (name: string) (get: 'T -> string | null) : ObjectPart<'T, string | null> = nullable name Schema.string get
 
     /// <summary>A nullable string with rules of its own.</summary>
     /// <remarks>
@@ -91,8 +134,7 @@ module WireField =
         (get: 'T -> string | null)
         : ObjectPart<'T, string | null>
         =
-        Schema.optional name (Schema.string |> Schema.constrain check) (fun value -> Option.ofObj (get value))
-        |> rebound Option.toObj
+        nullable name (Schema.string |> Schema.constrain check) get
 
     // ---- value types ---------------------------------------------------------
     //
@@ -193,6 +235,71 @@ module WireField =
                 | null -> Map.empty
                 | pairs -> pairs |> Seq.map (fun pair -> pair.Key, pair.Value) |> Map.ofSeq
             )
+        |> rebound (fun map ->
+            let result = Dictionary<string, 'V>()
+
+            for KeyValue(key, v) in map do
+                result[key] <- v
+
+            result
+        )
+    // ---- collections that are always there -----------------------------------
+    //
+    // Reach for WireField because a field is nullable, never because it is a
+    // collection. A collection the record declares non-nullable is required, and
+    // saying so is the whole point -- these exist so that saying so is as short
+    // as not saying it.
+
+    /// <summary>
+    /// An array that is always present, read as a list and handed back as an
+    /// array.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The counterpart to <c>array</c> for a field the record declares
+    /// non-nullable. Use it whenever the field is not <c>| null</c>, even when
+    /// the array is sometimes empty: empty is not absent.
+    /// </para>
+    /// <para>
+    /// Getting this wrong is quiet. <c>array</c> compiles against a non-nullable
+    /// field and hands back a non-null array, so nothing complains — but it
+    /// describes the field as <strong>optional</strong>, which reaches the
+    /// published OpenAPI document as a nullability a client must handle, and the
+    /// compatibility snapshot as an optionality that makes removing the field
+    /// later look safe when it is breaking.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// WireField.requiredArray "roles" Schema.string (fun p -> p.Roles)
+    /// </code></example>
+    let requiredArray (name: string) (element: Schema<'F>) (get: 'T -> 'F[]) : ObjectPart<'T, 'F[]> =
+        Schema.required name (Schema.list element) (fun value -> List.ofArray (get value))
+        |> rebound List.toArray
+
+    /// <summary>
+    /// A dictionary that is always present, read as a map and handed back as a
+    /// dictionary.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart to <c>dictionary</c>, and the reason that one is not the
+    /// only path: <c>Schema.required name (Schema.map value)</c> is correct but
+    /// speaks <c>Map</c>, so a record holding a <c>Dictionary</c> has to convert
+    /// in both directions by hand. The correct path should not be the
+    /// inconvenient one.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// WireField.requiredDictionary "references" Schema.string (fun p -> p.References)
+    /// </code></example>
+    let requiredDictionary
+        (name: string)
+        (value: Schema<'V>)
+        (get: 'T -> IDictionary<string, 'V>)
+        : ObjectPart<'T, Dictionary<string, 'V>>
+        =
+        Schema.required
+            name
+            (Schema.map value)
+            (fun item -> get item |> Seq.map (fun pair -> pair.Key, pair.Value) |> Map.ofSeq)
         |> rebound (fun map ->
             let result = Dictionary<string, 'V>()
 
