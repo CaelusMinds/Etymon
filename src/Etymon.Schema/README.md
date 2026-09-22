@@ -188,7 +188,34 @@ Constraints still apply through the crossing: `WireField.constrainedText` takes 
 `ConstraintCheck` and enforces it, which is the point of going through a `Schema`
 at all.
 
-Two things the collection fields decide for you, both deliberate:
+**Reach for `WireField` because a field is nullable, never because it is a
+collection.** A collection the record declares non-nullable is *required*, and
+`WireField.requiredArray` / `WireField.requiredDictionary` say so while still
+handling the list ↔ array and map ↔ dictionary crossing:
+
+```fsharp
+WireField.array         "lines"      lineSchema    (fun r -> r.Lines)       // 'F[] | null
+WireField.requiredArray "roles"      Schema.string (fun p -> p.Roles)       // 'F[]
+```
+
+Getting that wrong is quiet. `WireField.array` compiles against a non-nullable
+field and hands back a non-null array, so the compiler is satisfied — but the
+field is then described as optional, and that reaches the published OpenAPI
+document as a nullability clients must handle, and the compatibility snapshot as
+an optionality that makes removing the field later look safe when it is
+breaking. A tool whose job is refusing unsafe changes must not record the wrong
+optionality.
+
+For anything the typed members do not cover — a nested object that may be null,
+a string carrying `Schema.sensitive`, a `Schema.raw` payload — `WireField.nullable`
+takes any `Schema` at all, and the typed members are specialisations of it:
+
+```fsharp
+WireField.nullable "cadence"  cadenceSchema                          (fun r -> r.Cadence)
+WireField.nullable "password" (Schema.string |> Schema.sensitive)    (fun r -> r.Password)
+```
+
+Two things the nullable collection fields decide for you, both deliberate:
 
 - **A null collection and an absent key are the same thing**, and both read as
   empty. `WireField.array` binds an empty array rather than null, so it assigns

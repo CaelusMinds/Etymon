@@ -80,6 +80,44 @@ let private present (value: 'a | null) =
     | null -> failtest "expected a non-null collection"
     | v -> v
 
+[<NoComparison>]
+type Nested =
+    {
+        Line: BillLine | null
+        Secret: string | null
+    }
+
+let private nestedSchema =
+    Schema.object "Nested" {
+        let! line = WireField.nullable "line" lineSchema (fun n -> n.Line)
+
+        and! secret =
+            WireField.nullable "secret" (Schema.string |> Schema.constrain (Check.nonEmpty)) (fun n -> n.Secret)
+
+        return { Line = line; Secret = secret }
+    }
+
+[<NoComparison>]
+type AlwaysThere =
+    {
+        Roles: string[]
+        References: IDictionary<string, string>
+    }
+
+let private requiredSchema =
+    Schema.object "AlwaysThere" {
+        let! roles = WireField.requiredArray "roles" Schema.string (fun p -> p.Roles)
+
+        and! references =
+            WireField.requiredDictionary "references" Schema.string (fun p -> p.References)
+
+        return
+            {
+                Roles = roles
+                References = references
+            }
+    }
+
 let private empty =
     {
         BillNumber = null
@@ -182,5 +220,72 @@ let tests =
 
                     Expect.isEmpty required "every nullable field became optional, none required"
                 | other -> failtestf "expected an object, got %A" other
+            }
+
+            test "a nullable field of any Schema crosses without a conversion" {
+                // The gap that sent nine call sites back to Option.ofObj: a
+                // nested object, a sensitive string, a raw payload. None of them
+                // is a type this module could have enumerated.
+                match Schema.fromJson nestedSchema """{"line":{"sku":"A-1","quantity":3}}""" with
+                | Ok decoded ->
+                    match decoded.Line with
+                    | null -> failtest "the nested object should have decoded"
+                    | line -> Expect.equal line.Sku "A-1" "the nested object came back whole"
+                | Error errors -> failtestf "did not decode: %s" (ValidationErrors.format errors)
+            }
+
+            test "an absent nested object is null in the record, not an option" {
+                match Schema.fromJson nestedSchema """{}""" with
+                | Ok decoded -> Expect.isNull decoded.Line "absent is null, as the record declares it"
+                | Error errors -> failtestf "did not decode: %s" (ValidationErrors.format errors)
+            }
+
+            test "a constrained schema composes through nullable" {
+                // Schema.sensitive and Schema.constrain do not compose with
+                // WireField.text, which is what drove these fields back to the
+                // manual form -- and they are the fields where going through a
+                // Schema matters most.
+                Expect.isTrue
+                    (Validation.isOk (Schema.fromJson nestedSchema """{"secret":"hunter2"}"""))
+                    "a value that satisfies it"
+
+                match Validation.errorList (Schema.fromJson nestedSchema """{"secret":""}""") with
+                | [ _ ] -> ()
+                | other -> failtestf "expected the constraint to bite, got %A" other
+            }
+
+            test "a required collection is described as required, not optional" {
+                // The bug this pair exists to make unreachable. WireField.array
+                // compiles against a non-nullable field and hands back a
+                // non-null array, so nothing complains -- and the field reaches
+                // the OpenAPI document and the compatibility snapshot as
+                // optional, which is what makes removing it later look safe.
+                match SchemaInfo.strip (Schema.info requiredSchema) with
+                | SObject(_, fields) ->
+                    let required =
+                        fields |> List.filter (fun f -> f.Required) |> List.map (fun f -> f.Name)
+
+                    Expect.equal (List.sort required) [ "references"; "roles" ] "both say what they are"
+                | other -> failtestf "expected an object, got %A" other
+            }
+
+            test "a required collection still round-trips into the record's own types" {
+                let value =
+                    {
+                        Roles = [| "admin"; "member" |]
+                        References = dict [ "ledger", "L-1" ] |> Dictionary
+                    }
+
+                match Schema.fromJson requiredSchema (Schema.toJson requiredSchema value) with
+                | Ok decoded ->
+                    Expect.equal decoded.Roles value.Roles "an array, not a list"
+                    Expect.equal decoded.References.Count 1 "a dictionary, not a map"
+                | Error errors -> failtestf "did not decode: %s" (ValidationErrors.format errors)
+            }
+
+            test "a required collection that is absent is an error, not an empty one" {
+                match Validation.errorList (Schema.fromJson requiredSchema """{}""") with
+                | [] -> failtest "a required collection should be missed when it is absent"
+                | errors -> Expect.equal errors.Length 2 "one for each"
             }
         ]
