@@ -91,8 +91,14 @@ let private withEnv (values: (string * string) list) (body: unit -> unit) =
         for name, _ in values do
             Environment.SetEnvironmentVariable(name, null)
 
+// Sequenced, because withEnv mutates the process environment and the tests
+// that use it set and clear the same names. Run in parallel, one test's
+// cleanup can land in the middle of another's Config.load, and that is what
+// failed on a Windows runner while nothing in the change touched this
+// package. Eighteen tests in a fifth of a second lose nothing by queueing.
 let tests =
-    testList
+    testSequenced
+    <| testList
         "Config"
         [
             testList
