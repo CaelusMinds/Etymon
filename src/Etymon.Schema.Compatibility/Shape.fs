@@ -135,9 +135,14 @@ module Shape =
         | SAnnotated _ -> FieldType.Unknown
 
     /// <summary>
-    /// The shape of a named thing, derived from the <c>Schema</c> that describes
-    /// it.
+    /// The shape of a thing under a name you choose, rather than the one its
+    /// <c>Schema</c> carries.
     /// </summary>
+    /// <remarks>
+    /// For the rare shape whose Schema is unnamed, and for a deliberate rename
+    /// where the snapshot must keep the old entry. Prefer <c>Shape.ofSchema</c>,
+    /// which cannot disagree with the Schema because it does not get the chance.
+    /// </remarks>
     /// <remarks>
     /// Derive this from the same value that does the work -- the codec for an
     /// event, the request or response schema for a wire contract. A shape
@@ -145,9 +150,9 @@ module Shape =
     /// written or sent.
     /// </remarks>
     /// <example><code lang="fsharp">
-    /// Shape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
+    /// Shape.ofSchemaNamed "LegacyInvoice" 2 invoiceRaisedSchema
     /// </code></example>
-    let ofSchema (name: string) (version: int) (schema: Schema<'T>) : Shape =
+    let ofSchemaNamed (name: string) (version: int) (schema: Schema<'T>) : Shape =
         let fields =
             match SchemaInfo.strip schema.Info with
             | SObject(_, fields) ->
@@ -171,6 +176,46 @@ module Shape =
             Version = version
             Fields = fields
         }
+
+    /// <summary>
+    /// The shape of a named thing, derived from the <c>Schema</c> that describes
+    /// it — including its name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Derive this from the same value that does the work -- the codec for an
+    /// event, the request or response schema for a wire contract. A shape
+    /// derived from anything else describes a hope rather than what is actually
+    /// written or sent.
+    /// </para>
+    /// <para>
+    /// The name comes from the <c>Schema</c> rather than from the caller. A
+    /// snapshot matches its entries by name, so a shape recorded under a name
+    /// its <c>Schema</c> does not carry diffs cleanly against itself forever and
+    /// is never compared with the thing it actually describes. The failure is
+    /// silence, which is the failure this package exists to remove -- and a
+    /// hand-written list of sixty shapes is exactly where a copy-paste keeps the
+    /// wrong name.
+    /// </para>
+    /// <para>
+    /// The version stays a parameter, and should: it is not something a
+    /// <c>Schema</c> knows.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="System.ArgumentException">
+    /// The schema has no name to take. Name it with <c>Schema.object</c>, or say
+    /// the name deliberately with <c>Shape.ofSchemaNamed</c>.
+    /// </exception>
+    /// <example><code lang="fsharp">
+    /// Shape.ofSchema 2 invoiceRaisedSchema
+    /// </code></example>
+    let ofSchema (version: int) (schema: Schema<'T>) : Shape =
+        match SchemaInfo.name schema.Info with
+        | Some name -> ofSchemaNamed name version schema
+        | None ->
+            invalidArg
+                "schema"
+                "This schema has no name, so a shape cannot take one from it. Name it with Schema.object, or give the name deliberately with Shape.ofSchemaNamed."
 
     /// <summary>The field of this shape with a given name, if it has one.</summary>
     let tryField (name: string) (shape: Shape) =

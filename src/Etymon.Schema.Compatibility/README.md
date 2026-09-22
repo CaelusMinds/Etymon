@@ -56,8 +56,10 @@ in the system.
 ## What it does
 
 ```fsharp
-// A shape, derived from the Schema your codec is built from.
-let raisedV2 = Shape.ofSchema "InvoiceRaised" 2 invoiceRaisedSchema
+// A shape, derived from the Schema your codec is built from -- name and all.
+// The Schema already says it is an "InvoiceRaised", so you do not say it again
+// and the two cannot disagree.
+let raisedV2 = Shape.ofSchema 2 invoiceRaisedSchema
 
 // A snapshot, committed to the repository.
 File.WriteAllText("events.snapshot.json", ShapeSnapshots.toJson (ShapeSnapshot.of' shapes))

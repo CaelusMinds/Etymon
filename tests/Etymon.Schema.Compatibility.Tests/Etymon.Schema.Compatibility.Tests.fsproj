@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Compile Include="ShapeTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="CompatibilityTests.fs" />
     <Compile Include="WireTests.fs" />
