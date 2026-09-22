@@ -211,6 +211,13 @@ shapes[2].fields[0].name: is required
 - **Knowing whether removing a field is safe** when something outside the
   application reads the log. It cannot see those readers.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

@@ -13,6 +13,25 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.9]
+
+### Added
+
+- **Every shipping package now carries `Surface.fsi`** (#11): its complete
+  public surface as the compiler infers it -- every value with its full
+  signature, return type included, and its documentation -- at the root of the
+  nupkg beside the README. XML documentation has nowhere to put a return type,
+  so a reader working from the package on disk was learning what a function
+  hands back by compiling something and reading the error. Four such cycles in
+  one adoption, for information the package already knew.
+
+  The file is written by the build and committed under `src/<Package>/`, so a
+  change to the public surface is a diff in review, and CI fails when the
+  committed copy is stale. Generated rather than hand-written; the reasoning is
+  in `docs/decisions.md`.
+
+Nothing else changed. No breaking changes.
+
 ## [0.1.0-preview.8]
 
 Six defects reported from one adoption, across 22 request and 38 response

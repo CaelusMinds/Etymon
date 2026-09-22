@@ -46,6 +46,13 @@ It emits from the schema directly rather than through an OpenAPI document, which
 is one fewer representation to lose information in. Output is in name order and
 byte-identical between runs, so a change to it is a reviewable diff.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

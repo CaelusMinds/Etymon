@@ -78,6 +78,13 @@ testProperty "generated bookings are legal" (fun () ->
 schema is **looser than the type**: something the decoder lets through is not a
 legal value, which is precisely the gap a smart constructor exists to close.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

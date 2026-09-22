@@ -27,7 +27,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 > code in them are tested — **851 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Published to nuget.org as
-> `0.1.0-preview.8`; the API can still change, and a preview is where that should
+> `0.1.0-preview.9`; the API can still change, and a preview is where that should
 > happen.
 
 **New here?** [**Why Etymon**](docs/why-etymon.md) is the case for it: the same
@@ -273,7 +273,7 @@ To use it, take the meta-package or just the part you need. Previews are not
 restored unless you ask for the version, so name it:
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.8" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.9" />
 ```
 
 To build the repository instead:
@@ -314,6 +314,14 @@ local feed:
 The API reference is generated from XML doc comments with
 [fsdocs](https://fsprojects.github.io/FSharp.Formatting/); every public function
 in every shipping package has one.
+
+Every shipping package also carries `Surface.fsi` at the root of its nupkg,
+beside its README: the complete public surface as the compiler sees it, every
+value with its full signature and its documentation. It is where to learn what a
+function hands back without compiling anything, because XML documentation has
+nowhere to put a return type. The same file is committed at
+`src/<Package>/Surface.fsi`, written by the build, so a change to the public
+surface is a diff in review and CI fails when the committed copy is stale.
 
 ## Keeping up
 

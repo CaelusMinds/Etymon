@@ -89,6 +89,13 @@ the record somebody actually logs. Getting the value back is `Secret.reveal`,
 which is one greppable token, so auditing where secrets escape is a search
 rather than an audit.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

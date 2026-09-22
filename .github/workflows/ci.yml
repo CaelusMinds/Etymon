@@ -38,6 +38,19 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
+      # The committed signature files must match what this build just wrote. A
+      # stale one means the public surface changed and its diff -- which is the
+      # API change, and the thing review is for -- was never committed. See
+      # Directory.Build.targets at the root.
+      - name: Public surface is committed
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- 'src/*/Surface.fsi')" ]; then
+            git --no-pager diff -- 'src/*/Surface.fsi'
+            echo "::error::The public surface changed and src/*/Surface.fsi is stale. Build locally, review the diff (it is the API change), and commit it."
+            exit 1
+          fi
+
       # Expecto's own runner, not `dotnet test` -- see tests/Directory.Build.props.
       # Every project on both target frameworks: a bug that only shows up on one
       # of them has already happened twice.
