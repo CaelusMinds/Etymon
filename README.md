@@ -27,7 +27,7 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 > code in them are tested — **851 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Published to nuget.org as
-> `0.1.0-preview.10`; the API can still change, and a preview is where that should
+> `0.1.0-preview.11`; the API can still change, and a preview is where that should
 > happen.
 
 **New here?** [**Why Etymon**](docs/why-etymon.md) is the case for it: the same
@@ -273,7 +273,7 @@ To use it, take the meta-package or just the part you need. Previews are not
 restored unless you ask for the version, so name it:
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.10" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.11" />
 ```
 
 To build the repository instead:

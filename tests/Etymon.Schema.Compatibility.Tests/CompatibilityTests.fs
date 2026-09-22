@@ -19,7 +19,7 @@ let private field name t required constraints : ShapeField =
         Type = t
         Required = required
         Constraints = constraints
-        ElementConstraints = []
+        ElementConstraints = Some []
     }
 
 let private shape version fields : Shape =
@@ -332,7 +332,7 @@ let tests =
 
                         let roles codes =
                             { field "roles" (FieldType.Sequence(FieldType.Scalar "string")) true [] with
-                                ElementConstraints = [ rule codes ]
+                                ElementConstraints = Some [ rule codes ]
                             }
 
                         let before = shape 1 [ roles [ "read"; "write"; "admin" ] ]
@@ -355,6 +355,32 @@ let tests =
                         let rendered = Compatibility.report (changesFor a b)
                         Expect.isFalse (rendered.Contains "..") "no doubled full stops"
                         Expect.stringContains rendered "." "but sentences still end"
+                    }
+
+                    test "a snapshot that never recorded element rules is not compared on them" {
+                        // The regression this replaces: an old snapshot read as
+                        // "no rules", and the first diff after the upgrade
+                        // reported a narrowing on every list field with item
+                        // rules, with nothing to tell it from a real one.
+                        let rule = (Check.oneOf [ "read"; "write" ]).Constraint
+
+                        let roles recorded =
+                            { field "roles" (FieldType.Sequence(FieldType.Scalar "string")) true [] with
+                                ElementConstraints = recorded
+                            }
+
+                        let unrecorded = shape 1 [ roles None ]
+                        let recorded = shape 1 [ roles (Some [ rule ]) ]
+
+                        Expect.isEmpty
+                            (changesFor unrecorded recorded)
+                            "nothing to compare against, so nothing reported"
+
+                        Expect.isEmpty (changesFor recorded unrecorded) "in either direction"
+
+                        Expect.isNonEmpty
+                            (changesFor (shape 1 [ roles (Some []) ]) recorded)
+                            "but recorded-and-empty against recorded rules is a real change"
                     }
                 ]
         ]

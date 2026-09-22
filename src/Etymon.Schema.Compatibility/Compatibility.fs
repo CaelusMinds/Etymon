@@ -219,17 +219,24 @@ module Compatibility =
                                     "already-deployed code may reject what is written now, if the rules were widened."
                                 ]
 
-                        if constraintsDiffer beforeField.ElementConstraints afterField.ElementConstraints then
-                            change
-                                event
-                                (Some afterField.Name)
-                                $"the rules on each element of '%s{afterField.Name}' changed"
-                                [
-                                    Direction.Backward,
-                                    "what was already written may hold elements that do not satisfy the new rules, if they were narrowed."
-                                    Direction.Forward,
-                                    "already-deployed code may reject elements written now, if the rules were widened."
-                                ]
+                        // Compared only when both sides recorded them. A snapshot
+                        // from before element rules existed has nothing to compare
+                        // against, and treating that as "no rules" reported a
+                        // narrowing on every list field the first time through.
+                        match beforeField.ElementConstraints, afterField.ElementConstraints with
+                        | Some before, Some after ->
+                            if constraintsDiffer before after then
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"the rules on each element of '%s{afterField.Name}' changed"
+                                    [
+                                        Direction.Backward,
+                                        "what was already written may hold elements that do not satisfy the new rules, if they were narrowed."
+                                        Direction.Forward,
+                                        "already-deployed code may reject elements written now, if the rules were widened."
+                                    ]
+                        | _ -> ()
 
                         match beforeField.Type, afterField.Type with
                         | FieldType.Choice(_, beforeCases), FieldType.Choice(_, afterCases) ->

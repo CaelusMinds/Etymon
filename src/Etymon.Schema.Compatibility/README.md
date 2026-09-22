@@ -70,6 +70,13 @@ printfn "%s" (Compatibility.report changes)
 ```
 
 ```
+
+A snapshot records what its writer knew how to record. One written before
+`0.1.0-preview.10` carries no element rules for its collections, and that reads
+as *not recorded* — nothing is compared against it — rather than as *none*,
+which would report a narrowing on every list field the first time through.
+Regenerate the snapshot on upgrading, as on any change, and the next comparison
+has both sides.
   InvoiceRaised: the required field 'dueOn' was added.
     Backward (new code reading events already written): events already written
     have no 'dueOn', so an upcaster must supply one.

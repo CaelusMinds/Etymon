@@ -2,7 +2,7 @@
 
 Every example below is real. The "without" code is what people actually write,
 because most of it is what the author of this library wrote for years. The
-"with" code compiles against `0.1.0-preview.10`, and the output is what it
+"with" code compiles against `0.1.0-preview.11`, and the output is what it
 actually prints — you can run most of it from
 [`samples/Etymon.Sample.Derivations`](https://github.com/CaelusMinds/Etymon/tree/main/samples/Etymon.Sample.Derivations).
 
@@ -370,7 +370,7 @@ the only reason to quote numbers at all.
 ## Getting started
 
 ```xml
-<PackageReference Include="Etymon" Version="0.1.0-preview.10" />
+<PackageReference Include="Etymon" Version="0.1.0-preview.11" />
 ```
 
 Previews are not restored unless you ask for the version by name. Take the
