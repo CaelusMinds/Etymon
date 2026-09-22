@@ -2,6 +2,7 @@ namespace Etymon
 
 open System
 open System.Collections.Generic
+open System.Text.Json
 
 /// <summary>
 /// Fields of a record that is nullable because it came off the wire.
@@ -32,26 +33,22 @@ open System.Collections.Generic
 /// A crossing that only went one way would remove the smaller half of the work.
 /// </para>
 /// <para>
-/// <strong>This is not a shorter spelling of <c>Schema.optional</c>.</strong> They
-/// say different things:
-/// </para>
-/// <list type="bullet">
-/// <item><c>Schema.optional</c> says <em>this key may be absent</em>. That is a
-/// statement about the contract.</item>
-/// <item><c>WireField.text</c> says <em>this field is nullable because of how it
-/// arrived</em>. That is a statement about the record, and a temporary one.</item>
-/// </list>
-/// <para>
-/// They are spelled the same today and they are not the same idea. Naming the
-/// second one means that when those records stop being nullable, this module is
-/// the list of everywhere it mattered.
+/// <strong>What a field here says, in all three places.</strong> It is written
+/// as <c>"x": null</c> when there is nothing, never as an absent key, because
+/// that is what <c>System.Text.Json</c> writes and what every client has been
+/// reading. It is described as required with a nullable type, so a generated
+/// client expects <c>null</c> rather than <c>undefined</c>, and the
+/// compatibility snapshot records a key that is always there. It reads an
+/// absent key and a <c>null</c> the same way, because in practice callers mean
+/// the same thing by both. It is built on <c>Schema.present</c>;
+/// <c>Schema.optional</c> is the different statement, that a key may be missing.
 /// </para>
 /// <para>
 /// The rule that makes adoption mechanical: <strong>a field the record declares
-/// nullable is optional in the Schema; a field it declares non-nullable is
-/// <c>Schema.required</c>.</strong> Take the record at its word. Without that
-/// rule the first question on every type is "should this be required?", and the
-/// answer drifts across a codebase.
+/// nullable is present-and-nullable in the Schema; a field it declares
+/// non-nullable is <c>Schema.required</c>.</strong> Take the record at its word.
+/// Without that rule the first question on every type is "should this be
+/// required?", and the answer drifts across a codebase.
 /// </para>
 /// </remarks>
 [<RequireQualifiedAccess>]
@@ -65,6 +62,27 @@ module WireField =
             WriteFields = part.WriteFields
             ReadFields = fun mode path element -> part.ReadFields mode path element |> Validation.map convert
         }
+
+    /// Reads an absent or null key as a fallback rather than refusing it, with
+    /// the field still described as required. A collection is always written,
+    /// as empty when there is nothing, so required is what the wire carries; and
+    /// a body that omits it, or writes null, means the same thing by it.
+    let private lenient (fallback: 'A) (name: string) (part: ObjectPart<'T, 'A>) : ObjectPart<'T, 'A> =
+        { part with
+            ReadFields =
+                fun mode path element ->
+                    match element.TryGetProperty name with
+                    | true, property when property.ValueKind <> JsonValueKind.Null -> part.ReadFields mode path element
+                    | _ -> Ok fallback
+        }
+
+    let private toDictionary (map: Map<string, 'V>) =
+        let result = Dictionary<string, 'V>()
+
+        for KeyValue(key, v) in map do
+            result[key] <- v
+
+        result
 
     // ---- any schema at all ---------------------------------------------------
 
@@ -82,6 +100,10 @@ module WireField =
     /// remove, at exactly the fields where going through a <c>Schema</c> matters
     /// most.
     /// </para>
+    /// <para>
+    /// It means the same thing as <c>Schema.nullable</c>: a value that may be
+    /// <c>null</c>. The difference is only the shape it binds.
+    /// </para>
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.nullable "cadence" cadenceSchema (fun r -> r.Cadence)
@@ -93,7 +115,7 @@ module WireField =
         (get: 'T -> 'F | null)
         : ObjectPart<'T, 'F | null>
         =
-        Schema.optional
+        Schema.present
             name
             schema
             (fun value ->
@@ -121,9 +143,8 @@ module WireField =
 
     /// <summary>A nullable string with rules of its own.</summary>
     /// <remarks>
-    /// The constraint applies to the value when there is one. An absent or null
-    /// key is not a rule violation; say so with <c>Schema.required</c> if it
-    /// should be.
+    /// The constraint applies to the value when there is one. A <c>null</c> is
+    /// not a rule violation; say so with <c>Schema.required</c> if it should be.
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.constrainedText "role" (Check.oneOf [ "admin"; "member" ]) (fun r -> r.Role)
@@ -143,69 +164,79 @@ module WireField =
 
     /// <summary>A <c>Nullable&lt;int&gt;</c>.</summary>
     let int (name: string) (get: 'T -> Nullable<int>) : ObjectPart<'T, Nullable<int>> =
-        Schema.optional name Schema.int (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.int (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;int64&gt;</c>.</summary>
     let int64 (name: string) (get: 'T -> Nullable<int64>) : ObjectPart<'T, Nullable<int64>> =
-        Schema.optional name Schema.int64 (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.int64 (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;decimal&gt;</c>. Use this for money rather than float.</summary>
     let decimal (name: string) (get: 'T -> Nullable<decimal>) : ObjectPart<'T, Nullable<decimal>> =
-        Schema.optional name Schema.decimal (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.decimal (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;float&gt;</c>.</summary>
     let float (name: string) (get: 'T -> Nullable<float>) : ObjectPart<'T, Nullable<float>> =
-        Schema.optional name Schema.float (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.float (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;bool&gt;</c>.</summary>
     let bool (name: string) (get: 'T -> Nullable<bool>) : ObjectPart<'T, Nullable<bool>> =
-        Schema.optional name Schema.bool (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.bool (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;Guid&gt;</c>.</summary>
     let guid (name: string) (get: 'T -> Nullable<Guid>) : ObjectPart<'T, Nullable<Guid>> =
-        Schema.optional name Schema.guid (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.guid (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;DateOnly&gt;</c>.</summary>
     let dateOnly (name: string) (get: 'T -> Nullable<DateOnly>) : ObjectPart<'T, Nullable<DateOnly>> =
-        Schema.optional name Schema.dateOnly (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.dateOnly (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     /// <summary>A <c>Nullable&lt;DateTimeOffset&gt;</c>.</summary>
     let dateTimeOffset (name: string) (get: 'T -> Nullable<DateTimeOffset>) : ObjectPart<'T, Nullable<DateTimeOffset>> =
-        Schema.optional name Schema.dateTimeOffset (fun value -> Option.ofNullable (get value))
+        Schema.present name Schema.dateTimeOffset (fun value -> Option.ofNullable (get value))
         |> rebound Option.toNullable
 
     // ---- collections ---------------------------------------------------------
+    //
+    // Reach for WireField because a field is nullable, never because it is a
+    // collection. These describe what they write: an array that is always there,
+    // empty when there is nothing.
 
     /// <summary>
     /// A nullable array, read as a list and handed back as an array.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A null array and an absent key are both read as no items, and the value
     /// bound is an empty array rather than null, so it assigns straight into a
-    /// nullable field. That removes a decision at every call site; where the
-    /// difference genuinely matters, say so with <c>Schema.required</c> and a
-    /// nullable element type.
+    /// nullable field and no call site needs a guard. Empty is what is written
+    /// for null, and the field is described as required, because that is what
+    /// the wire carries.
+    /// </para>
+    /// <para>
+    /// Where the difference between absent and empty genuinely carries meaning,
+    /// say so with <c>Schema.optional</c> and a nullable element type.
+    /// </para>
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.array "lines" lineSchema (fun r -> r.Lines)
     /// </code></example>
     let array (name: string) (element: Schema<'F>) (get: 'T -> 'F[] | null) : ObjectPart<'T, 'F[]> =
-        Schema.defaulted
+        Schema.required
             name
             (Schema.list element)
-            []
             (fun value ->
                 match get value with
                 | null -> []
                 | items -> List.ofArray items
             )
+        |> lenient [] name
         |> rebound List.toArray
 
     /// <summary>
@@ -215,7 +246,8 @@ module WireField =
     /// <remarks>
     /// Takes <c>IDictionary</c> rather than <c>Dictionary</c>, so a record
     /// holding either satisfies it. Null and absent are both no entries, for the
-    /// same reason as <c>array</c>.
+    /// same reason as <c>array</c>, and it is described as required for the same
+    /// reason too.
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.dictionary "dimensions" Schema.string (fun r -> r.Dimensions)
@@ -226,48 +258,29 @@ module WireField =
         (get: 'T -> IDictionary<string, 'V> | null)
         : ObjectPart<'T, Dictionary<string, 'V>>
         =
-        Schema.defaulted
+        Schema.required
             name
             (Schema.map value)
-            Map.empty
             (fun item ->
                 match get item with
                 | null -> Map.empty
                 | pairs -> pairs |> Seq.map (fun pair -> pair.Key, pair.Value) |> Map.ofSeq
             )
-        |> rebound (fun map ->
-            let result = Dictionary<string, 'V>()
+        |> lenient Map.empty name
+        |> rebound toDictionary
 
-            for KeyValue(key, v) in map do
-                result[key] <- v
-
-            result
-        )
     // ---- collections that are always there -----------------------------------
-    //
-    // Reach for WireField because a field is nullable, never because it is a
-    // collection. A collection the record declares non-nullable is required, and
-    // saying so is the whole point -- these exist so that saying so is as short
-    // as not saying it.
 
     /// <summary>
-    /// An array that is always present, read as a list and handed back as an
-    /// array.
+    /// An array the record declares non-nullable, read as a list and handed back
+    /// as an array.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The counterpart to <c>array</c> for a field the record declares
-    /// non-nullable. Use it whenever the field is not <c>| null</c>, even when
-    /// the array is sometimes empty: empty is not absent.
-    /// </para>
-    /// <para>
-    /// Getting this wrong is quiet. <c>array</c> compiles against a non-nullable
-    /// field and hands back a non-null array, so nothing complains — but it
-    /// describes the field as <strong>optional</strong>, which reaches the
-    /// published OpenAPI document as a nullability a client must handle, and the
-    /// compatibility snapshot as an optionality that makes removing the field
-    /// later look safe when it is breaking.
-    /// </para>
+    /// The counterpart to <c>array</c> for a field that is not <c>| null</c>.
+    /// Both are described as required, because both always write an array; the
+    /// difference is that this one refuses an absent key rather than reading it
+    /// as empty. A non-nullable field that a deserialiser would have left null is
+    /// the defect this declines to paper over.
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.requiredArray "roles" Schema.string (fun p -> p.Roles)
@@ -277,15 +290,13 @@ module WireField =
         |> rebound List.toArray
 
     /// <summary>
-    /// A dictionary that is always present, read as a map and handed back as a
-    /// dictionary.
+    /// A dictionary the record declares non-nullable, read as a map and handed
+    /// back as a dictionary.
     /// </summary>
     /// <remarks>
-    /// The counterpart to <c>dictionary</c>, and the reason that one is not the
-    /// only path: <c>Schema.required name (Schema.map value)</c> is correct but
-    /// speaks <c>Map</c>, so a record holding a <c>Dictionary</c> has to convert
-    /// in both directions by hand. The correct path should not be the
-    /// inconvenient one.
+    /// The counterpart to <c>dictionary</c>, with the same difference as
+    /// <c>requiredArray</c>: an absent key is refused. Takes <c>IDictionary</c>,
+    /// so a record holding either kind satisfies it.
     /// </remarks>
     /// <example><code lang="fsharp">
     /// WireField.requiredDictionary "references" Schema.string (fun p -> p.References)
@@ -300,11 +311,4 @@ module WireField =
             name
             (Schema.map value)
             (fun item -> get item |> Seq.map (fun pair -> pair.Key, pair.Value) |> Map.ofSeq)
-        |> rebound (fun map ->
-            let result = Dictionary<string, 'V>()
-
-            for KeyValue(key, v) in map do
-                result[key] <- v
-
-            result
-        )
+        |> rebound toDictionary

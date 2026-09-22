@@ -199,7 +199,13 @@ module Schema =
                 | _ -> Codec.mismatch "boolean" path element
             )
 
-    /// A scalar carried as a string: written by rendering, read by parsing.
+    // A scalar carried as a string: written by rendering, read by parsing.
+    //
+    // A plain comment rather than a doc comment. The compiler puts a documented
+    // private member into the XML, where a reader of the package takes it for
+    // something they can call. The public way to carry a coded value is
+    // Schema.string |> Schema.constrain (Check.oneOf codes) |> Schema.convert,
+    // which also publishes the code set as an enum.
     let private stringly kind (render: 'T -> string) (parse: string -> 'T option) (expected: string) : Schema<'T> =
         prim
             kind
@@ -737,6 +743,65 @@ module Schema =
                     | true, property ->
                         match schema.Read mode Path.root property with
                         | Ok value -> Ok(Some value)
+                        | Error errors -> Error(ValidationErrors.underField name errors)
+                    | false, _ -> Ok None
+        }
+
+    /// <summary>
+    /// A field that is always present and may be <c>null</c>: written as
+    /// <c>"x": null</c> when there is nothing, described as required with a
+    /// nullable type, and read leniently, so that an absent key and a
+    /// <c>null</c> both arrive as <c>None</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is what <c>System.Text.Json</c> writes for a nullable field, and
+    /// therefore what every client of a service built on it has been reading.
+    /// Describing such a field as <c>optional</c> tells a generated client to
+    /// expect <c>undefined</c> and hands it <c>null</c>, and tells the
+    /// compatibility snapshot the key might not be there, so that removing it
+    /// later looks safe when it is not.
+    /// </para>
+    /// <para>
+    /// Three fields, three statements. <c>required</c>: the key is there and
+    /// the value is not null. <c>present</c>: the key is there and the value
+    /// may be null. <c>optional</c>: the key may be missing. A missing key is
+    /// read as <c>None</c> here rather than refused, because in practice a
+    /// caller means the same thing by both; where the difference matters,
+    /// <c>required</c> with <c>Schema.nullable</c> refuses the absent key.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Schema.present "note" Schema.string (fun r -> r.Note) // r.Note : string option
+    /// </code></example>
+    let present (name: string) (schema: Schema<'F>) (get: 'T -> 'F option) : ObjectPart<'T, 'F option> =
+        let orNull = nullable schema
+
+        {
+            Fields =
+                [
+                    {
+                        Name = name
+                        Schema = orNull.Info
+                        Required = true
+                        Description = None
+                        Default = None
+                        // From the inner schema: the nullable wrapper carries no
+                        // metadata of its own, and a sensitive value is no less
+                        // sensitive for being allowed to be null.
+                        Sensitive = (SchemaInfo.meta schema.Info).Sensitive
+                    }
+                ]
+            WriteFields =
+                fun writer value ->
+                    writer.WritePropertyName name
+                    orNull.Write writer (get value)
+            ReadFields =
+                fun mode _ element ->
+                    match element.TryGetProperty name with
+                    | true, property ->
+                        match orNull.Read mode Path.root property with
+                        | Ok value -> Ok value
                         | Error errors -> Error(ValidationErrors.underField name errors)
                     | false, _ -> Ok None
         }

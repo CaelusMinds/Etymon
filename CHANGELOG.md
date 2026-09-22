@@ -13,6 +13,54 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.10]
+
+Four more defects from the same adoption. One changes what goes on the wire,
+which is the reason previews exist.
+
+### Breaking
+
+- **`WireField` now writes what System.Text.Json writes** (#13). A nullable
+  field is written as `"x": null`, never as an absent key, and is described as
+  required with a nullable type — `["string", "null"]`, in `required` — rather
+  than as optional. Before this, the OpenAPI document told a generated client to
+  expect `undefined` and handed it `null`, and the compatibility snapshot
+  recorded a key that was always there as one that might not be, so removing it
+  later diffed as safe. Forty-four fields across nineteen response shapes in one
+  consumer, every one written present-and-null. Decoding is unchanged: absent
+  and `null` both read as `null`.
+
+  New: `Schema.present`, the primitive this is built on — always written,
+  described required-nullable, read leniently — for a record that already
+  speaks in `option`. `WireField.nullable` and `Schema.nullable` now mean the
+  same thing; `Schema.optional` alone means a key that may be missing.
+  `WireField.array` and `WireField.dictionary` are described as required too,
+  because they always write a collection; what they write and read is unchanged.
+
+- **`ShapeField` gains `ElementConstraints`** (#17). `Shape.ofSchema` carried a
+  field's constraints for a scalar and dropped them for the items of a sequence,
+  so removing a code from `roles` or `permissions` — the fields most likely to
+  hold a code set — was not reported. A change to them now diffs like a change
+  to a scalar's rules. Snapshots written before the key existed still read;
+  their collections simply have no element rules recorded. Code constructing
+  `ShapeField` by hand adds the field.
+
+### Fixed
+
+- **`Refine.wrap` ran before the checks that preceded it** (#16), so the only
+  public way to guard a partial conversion — a `satisfies` that a code parses,
+  then a `wrap` that parses it — threw from inside the decoder instead of
+  refusing. On a replay of stored events that reads as data corruption. Rules
+  added before `wrap` now run before it. New: `Refine.parse`, for a conversion
+  that can refuse on its own, publishing its rule like any other.
+  `Refine.validate` is unchanged.
+- **`Schema.stringly` appeared in the XML documentation and could not be
+  called** (#15). It is a private helper; it no longer carries a doc comment.
+  The public way to carry a coded value — `Schema.constrain (Check.oneOf codes)`
+  then `Schema.convert` — is in the README, and it publishes the code set as an
+  `enum`, which `stringly` never did.
+- Every line of a compatibility report ended in two full stops (#17, in passing).
+
 ## [0.1.0-preview.9]
 
 ### Added

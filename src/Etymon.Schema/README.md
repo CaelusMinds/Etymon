@@ -105,6 +105,18 @@ JSON Schema keywords, `Etymon.Schema.Sql` into SQL constraints,
 `Etymon.Invariants.FsCheck` into generators — every one of them reading the same
 declaration rather than restating it.
 
+A value carried as one of a fixed set of codes — a union stored as
+`"accountant"` — is a constrained string with a conversion on top:
+
+```fsharp
+Schema.string
+|> Schema.constrain (Check.oneOf [ "accountant"; "bookkeeper" ])
+|> Schema.convert parse render
+```
+
+The constraint runs before the conversion, so `parse` only ever sees a code it
+knows, and the code set is published as an `enum` in every derivation.
+
 ## What it covers
 
 Primitives (`string`, `int`, `int64`, `float`, `decimal`, `bool`, `guid`,
@@ -143,14 +155,19 @@ acceptable: `"eighty"` is still not a number.
 
 ## Adopting this over records that came off the wire
 
-If your request types are currently bound by `System.Text.Json`, they are
-nullable throughout — `string | null`, `Nullable<int>`, `'a[] | null` — because
-a decoder that cannot refuse has to put *something* in every field. A `Schema`
-speaks in `option`, so every field crosses.
+If your request and response types are currently bound by `System.Text.Json`,
+they are nullable throughout — `string | null`, `Nullable<int>`, `'a[] | null` —
+because a decoder that cannot refuse has to put *something* in every field. And
+System.Text.Json writes every field, null included: `{"name":"x","note":null}`,
+never `{"name":"x"}`. A `Schema` speaks in `option`, so every field crosses.
 
 **One rule makes the conversion mechanical: take the record at its word.** A
-field the record declares nullable is optional in the `Schema`; a field it
-declares non-nullable is `Schema.required`.
+field the record declares nullable is *present and nullable* in the `Schema` —
+always written, `null` when there is nothing, which is what System.Text.Json
+writes and what every client of yours has been reading. A field it declares
+non-nullable is `Schema.required`. A key that may genuinely be *absent* is
+`Schema.optional`, and that is a different statement, about the contract rather
+than the record.
 
 Without that rule the first question on every single type is "should this be
 required?", the answer is a judgement each time, and it drifts across a
@@ -170,62 +187,52 @@ let createBill =
     }
 ```
 
-A crossing that only went one way would remove the smaller half of the work: the
-reads would be clean and every field of the `return` would carry a conversion
-back. The signatures are annotated for F# nullness, so this compiles unchanged in
-a project with `<Nullable>enable</Nullable>` — which is the audience the module
+The signatures are annotated for F# nullness, so this compiles unchanged in a
+project with `<Nullable>enable</Nullable>` — which is the audience the module
 exists for.
 
-**`WireField.text` is not a shorter spelling of `Schema.optional`.** They say
-different things: `Schema.optional` says *this key may be absent*, which is a
-statement about the contract; `WireField.text` says *this field is nullable
-because of how it arrived*, which is a statement about the record, and a
-temporary one. They are spelled the same today and they are not the same idea —
-so when those records stop being nullable, `WireField` is the list of everywhere
-it mattered.
+**What a `WireField` field says, in all three places.** It encodes `null` as
+`"x": null`, not as an absent key. It is described as required with a nullable
+type — `["string", "null"]`, in `required` — so a generated client types it
+`string | null` and receives exactly that, and the compatibility snapshot records
+it as present, so removing it later is reported as the break it is. It decodes
+absent and `null` the same way, as `null`, because in practice callers mean the
+same thing by both. It is built on `Schema.present`, which is the same statement
+for a record that already speaks in `option`. `WireField.nullable` and
+`Schema.nullable` therefore mean the same thing: a value that may be `null`.
+`Schema.optional` is the one that means a key that may be missing.
 
 Constraints still apply through the crossing: `WireField.constrainedText` takes a
 `ConstraintCheck` and enforces it, which is the point of going through a `Schema`
-at all.
-
-**Reach for `WireField` because a field is nullable, never because it is a
-collection.** A collection the record declares non-nullable is *required*, and
-`WireField.requiredArray` / `WireField.requiredDictionary` say so while still
-handling the list ↔ array and map ↔ dictionary crossing:
-
-```fsharp
-WireField.array         "lines"      lineSchema    (fun r -> r.Lines)       // 'F[] | null
-WireField.requiredArray "roles"      Schema.string (fun p -> p.Roles)       // 'F[]
-```
-
-Getting that wrong is quiet. `WireField.array` compiles against a non-nullable
-field and hands back a non-null array, so the compiler is satisfied — but the
-field is then described as optional, and that reaches the published OpenAPI
-document as a nullability clients must handle, and the compatibility snapshot as
-an optionality that makes removing the field later look safe when it is
-breaking. A tool whose job is refusing unsafe changes must not record the wrong
-optionality.
-
-For anything the typed members do not cover — a nested object that may be null,
-a string carrying `Schema.sensitive`, a `Schema.raw` payload — `WireField.nullable`
-takes any `Schema` at all, and the typed members are specialisations of it:
+at all. For anything the typed members do not cover — a nested object that may be
+null, a string carrying `Schema.sensitive`, a `Schema.raw` payload —
+`WireField.nullable` takes any `Schema`, and the typed members are
+specialisations of it:
 
 ```fsharp
 WireField.nullable "cadence"  cadenceSchema                          (fun r -> r.Cadence)
 WireField.nullable "password" (Schema.string |> Schema.sensitive)    (fun r -> r.Password)
 ```
 
-Two things the nullable collection fields decide for you, both deliberate:
+**Reach for `WireField` because a field is nullable, never because it is a
+collection.** `WireField.array` and `WireField.dictionary` take the nullable
+collection a deserialiser leaves and hand back a non-null one, so no call site
+needs a guard: a null collection and an absent key both read as empty, and empty
+is what is written for null. They are described as required, because that is
+what is written. `WireField.requiredArray` and `WireField.requiredDictionary` are
+the same crossing for a field the record declares non-nullable, and they refuse
+an absent key rather than read it as empty. Where the difference between *absent*
+and *empty* genuinely carries meaning, say so with `Schema.optional` and a
+nullable element type.
 
-- **A null collection and an absent key are the same thing**, and both read as
-  empty. `WireField.array` binds an empty array rather than null, so it assigns
-  straight into a nullable field and no call site needs a guard. Where the
-  difference between *absent* and *empty* genuinely carries meaning, say so
-  explicitly with `Schema.required`.
-- **`WireField.dictionary` takes `IDictionary<string, 'V>` and hands back a
-  `Dictionary<string, 'V>`.** Taking the interface means a record holding either
-  satisfies it; handing back the concrete type means it assigns into the usual
-  `Dictionary` field without a cast.
+```fsharp
+WireField.array         "lines"      lineSchema    (fun r -> r.Lines)       // 'F[] | null
+WireField.requiredArray "roles"      Schema.string (fun p -> p.Roles)       // 'F[]
+```
+
+`WireField.dictionary` takes `IDictionary<string, 'V>` and hands back a
+`Dictionary<string, 'V>`: the interface going in so either field type satisfies
+it, the concrete type coming back so it assigns without a cast.
 
 ## Design notes
 

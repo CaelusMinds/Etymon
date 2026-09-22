@@ -112,12 +112,22 @@ module ShapeSnapshots =
             and! constraints =
                 Schema.required "constraints" (Schema.list ConstraintCodec.schema) (fun f -> f.Constraints)
 
+            // Defaulted, so that every snapshot written before this key existed
+            // still reads: its collections simply had no element rules recorded.
+            and! elementConstraints =
+                Schema.defaulted
+                    "elementConstraints"
+                    (Schema.list ConstraintCodec.schema)
+                    []
+                    (fun f -> f.ElementConstraints)
+
             return
                 {
                     Name = name
                     Type = fieldType
                     Required = required
                     Constraints = constraints
+                    ElementConstraints = elementConstraints
                 }
         }
 

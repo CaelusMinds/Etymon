@@ -14,6 +14,7 @@ let private field name t required constraints : ShapeField =
         Type = t
         Required = required
         Constraints = constraints
+        ElementConstraints = []
     }
 
 /// One of every FieldType, so nothing in the union goes untested.
@@ -80,5 +81,22 @@ let tests =
                 Expect.equal (ShapeSnapshot.versionsOf "InvoiceRaised" snapshot) [ 3 ] "and their versions"
                 Expect.isSome (ShapeSnapshot.tryLatest "InvoiceRaised" snapshot) "and the current shape"
                 Expect.isNone (ShapeSnapshot.tryLatest "Missing" snapshot) "and nothing for what it does not hold"
+            }
+
+            test "a snapshot written before element rules existed still reads" {
+                // The key is defaulted: an old file's collections simply have no
+                // element rules recorded, which is what was true when it was
+                // written.
+                let old =
+                    """{"formatVersion":1,"shapes":[{"name":"A","version":1,"fields":[
+                        {"name":"tags","type":{"kind":"sequence","value":{"kind":"scalar","value":"string"}},"required":true,"constraints":[]}]}]}"""
+
+                match ShapeSnapshots.fromJson old with
+                | Ok snapshot ->
+                    match ShapeSnapshot.tryLatest "A" snapshot with
+                    | Some shape ->
+                        Expect.equal (List.head shape.Fields).ElementConstraints [] "read as none, not refused"
+                    | None -> failtest "the shape should be there"
+                | Error errors -> failtestf "an old snapshot should still read: %s" (ValidationErrors.format errors)
             }
         ]

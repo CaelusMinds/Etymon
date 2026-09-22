@@ -66,6 +66,13 @@ namespace Etymon
           /// already written or already sent, which is why they are recorded
           /// rather than dropped.
           Constraints: Constraint list
+          
+          /// The rules on each element of a sequence, or each value of a mapping.
+          /// A code set is more often a list of codes than a single one -- roles,
+          /// permissions, grants -- and narrowing it is the same break as narrowing
+          /// a scalar's rules, so it is recorded the same way. One level: the
+          /// elements of a list of lists are not reached.
+          ElementConstraints: Constraint list
         }
     
     /// <summary>
@@ -127,6 +134,10 @@ namespace Etymon
         /// nested type.
         /// </remarks>
         val private typeOf: info: SchemaInfo -> FieldType
+        
+        /// The constraints on what a collection holds, looking through a nullable
+        /// wrapper so that a list that may itself be null still reports them.
+        val private elementConstraints: info: SchemaInfo -> Constraint list
         
         /// <summary>
         /// The shape of a thing under a name you choose, rather than the one its

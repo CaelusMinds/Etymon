@@ -165,13 +165,15 @@ let tests =
                 | Error errors -> failtestf "did not decode: %s" (ValidationErrors.format errors)
             }
 
-            test "a record that is null throughout writes an object with nothing in it" {
-                // The collections write as empty rather than vanishing, because
-                // a caller reading "lines" should find a list.
+            test "a record that is null throughout writes every key, as System.Text.Json would" {
+                // Present and null, never absent: that is what the deserialiser
+                // that produced these records writes, and what every client has
+                // been reading. The collections write as empty rather than null,
+                // because a caller reading "lines" should find a list.
                 Expect.equal
                     (Schema.toJson schema empty)
-                    """{"lines":[],"dimensions":{}}"""
-                    "absent is absent, not null"
+                    """{"billNumber":null,"role":null,"vendorId":null,"total":null,"billDate":null,"approved":null,"lines":[],"dimensions":{}}"""
+                    "null is null, not absent"
             }
 
             test "an absent key and an explicit null arrive the same way" {
@@ -209,16 +211,30 @@ let tests =
                 | other -> failtestf "expected one error, got %A" other
             }
 
-            test "the rule the crossing encodes: nullable means optional" {
-                // A field the record declares nullable is optional in the
-                // Schema. Taking the record at its word is what made adoption
-                // mechanical rather than a judgement on every field.
+            test "the rule the crossing encodes: nullable means present and nullable" {
+                // A field the record declares nullable is present-and-nullable
+                // in the Schema, which is what System.Text.Json writes. Every
+                // field is required; the scalars carry a nullable type, and the
+                // collections do not, because they are written as empty.
                 match SchemaInfo.strip (Schema.info schema) with
                 | SObject(_, fields) ->
-                    let required =
-                        fields |> List.filter (fun f -> f.Required) |> List.map (fun f -> f.Name)
+                    let optional =
+                        fields |> List.filter (fun f -> not f.Required) |> List.map (fun f -> f.Name)
 
-                    Expect.isEmpty required "every nullable field became optional, none required"
+                    Expect.isEmpty optional "no field is described as possibly absent"
+
+                    let isNullable (f: FieldInfo) =
+                        match SchemaInfo.strip f.Schema with
+                        | SNullable _ -> true
+                        | _ -> false
+
+                    let nullable =
+                        fields |> List.filter isNullable |> List.map (fun f -> f.Name) |> List.sort
+
+                    Expect.equal
+                        nullable
+                        [ "approved"; "billDate"; "billNumber"; "role"; "total"; "vendorId" ]
+                        "every scalar is nullable; neither collection is"
                 | other -> failtestf "expected an object, got %A" other
             }
 
@@ -287,5 +303,38 @@ let tests =
                 match Validation.errorList (Schema.fromJson requiredSchema """{}""") with
                 | [] -> failtest "a required collection should be missed when it is absent"
                 | errors -> Expect.equal errors.Length 2 "one for each"
+            }
+
+            test "a nullable field of any Schema is written as null, never omitted" {
+                Expect.equal
+                    (Schema.toJson nestedSchema { Line = null; Secret = null })
+                    """{"line":null,"secret":null}"""
+                    "the nested object and the constrained string both"
+            }
+
+            test "WireField.nullable and Schema.nullable now say the same thing" {
+                // Under one word, two meanings was the collision the report
+                // named. Both describe a value that may be null; the difference
+                // is only the shape bound.
+                let viaWire =
+                    Schema.object "A" {
+                        let! x = WireField.text "x" (fun (r: Nested) -> r.Secret) in return { Line = null; Secret = x }
+                    }
+
+                let viaSchema =
+                    Schema.object "A" {
+                        let! x =
+                            Schema.required
+                                "x"
+                                (Schema.nullable Schema.string)
+                                (fun (r: Nested) -> Option.ofObj r.Secret)
+
+                        return { Line = null; Secret = Option.toObj x }
+                    }
+
+                Expect.equal
+                    (SchemaInfo.strip (Schema.info viaWire))
+                    (SchemaInfo.strip (Schema.info viaSchema))
+                    "identical descriptions"
             }
         ]
