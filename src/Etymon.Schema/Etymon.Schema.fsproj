@@ -27,6 +27,7 @@
     <Compile Include="Schema.fs" />
     <Compile Include="ConstraintCodec.fs" />
     <Compile Include="WireField.fs" />
+    <Compile Include="RequestField.fs" />
   </ItemGroup>
 
   <ItemGroup>

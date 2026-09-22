@@ -1197,3 +1197,171 @@ namespace Etymon
             get: ('T -> System.Collections.Generic.IDictionary<string,'V>) ->
             ObjectPart<'T,System.Collections.Generic.Dictionary<string,'V>>
 
+namespace Etymon
+    
+    /// <summary>
+    /// Fields of a request body, bound to a record that is nullable because it came
+    /// off the wire.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same DTO shape needs two descriptions, one for each direction.
+    /// <c>WireField</c> is what you <em>write</em>: every field present, null when
+    /// there is nothing, described as required with a nullable type, because that
+    /// is what <c>System.Text.Json</c> writes and what every client has been
+    /// reading. This module is what you <em>accept</em>: a request body is read,
+    /// not written, and read leniently — absent and null are the same thing — so
+    /// the honest description is optional and nullable. Naming both means neither
+    /// is the other's misuse.
+    /// </para>
+    /// <para>
+    /// Same members, same signatures, same crossing in both directions. A request
+    /// file uses this module, a response file uses <c>WireField</c>, and a DTO
+    /// shared by both is described twice, once each way. For a scalar the two
+    /// descriptions differ in one word, Required. A collection differs in one more:
+    /// going out it is never written as null, so it is a plain array; coming in it
+    /// may arrive as null, so it admits one.
+    /// </para>
+    /// <para>
+    /// Built on <c>Schema.defaulted</c> with a null fallback, so the document says
+    /// <c>"default": null</c>: absent means null, which is what the reader does.
+    /// The client package encodes with the same schema, so a request it sends
+    /// carries the key with null rather than omitting it — within the contract this
+    /// describes. Collections write as empty and default to empty, as in
+    /// <c>WireField</c>, because a caller reading "lines" should find a list.
+    /// </para>
+    /// </remarks>
+    [<RequireQualifiedAccess>]
+    module RequestField =
+        
+        /// Rebinds what a field produces, so the expression hands back the shape the
+        /// record wants rather than the shape the decoder worked in.
+        val private rebound:
+          convert: ('A -> 'B) -> part: ObjectPart<'T,'A> -> ObjectPart<'T,'B>
+        
+        val private toDictionary:
+          map: Map<string,'V> ->
+            System.Collections.Generic.Dictionary<string,'V>
+        
+        /// <summary>
+        /// A nullable field of any <c>Schema</c>, optional and nullable in the
+        /// description. Everything below is a convenient specialisation of this.
+        /// </summary>
+        /// <example><code lang="fsharp">
+        /// RequestField.nullable "cadence" cadenceSchema (fun r -> r.Cadence)
+        /// </code></example>
+        val nullable<'T,'F when 'F: not struct and 'F: not null> :
+          name: string ->
+            schema: Schema<'F> ->
+            get: ('T -> 'F | null) -> ObjectPart<'T,('F | null)>
+            when 'F: not struct and 'F: not null
+        
+        /// <summary>A nullable string, read and handed back as one.</summary>
+        /// <example><code lang="fsharp">
+        /// RequestField.text "billNumber" (fun r -> r.BillNumber)
+        /// </code></example>
+        val text:
+          name: string ->
+            get: ('T -> string | null) -> ObjectPart<'T,(string | null)>
+        
+        /// <summary>A nullable string with rules of its own.</summary>
+        /// <remarks>
+        /// The constraint applies to the value when there is one. Absent and
+        /// <c>null</c> are not rule violations; say so with <c>Schema.required</c>
+        /// if they should be.
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// RequestField.constrainedText "role" (Check.oneOf [ "admin"; "member" ]) (fun r -> r.Role)
+        /// </code></example>
+        val constrainedText:
+          name: string ->
+            check: ConstraintCheck<string> ->
+            get: ('T -> string | null) -> ObjectPart<'T,(string | null)>
+        
+        /// <summary>A <c>Nullable&lt;int&gt;</c>.</summary>
+        val int:
+          name: string ->
+            get: ('T -> System.Nullable<int>) ->
+            ObjectPart<'T,System.Nullable<int>>
+        
+        /// <summary>A <c>Nullable&lt;int64&gt;</c>.</summary>
+        val int64:
+          name: string ->
+            get: ('T -> System.Nullable<int64>) ->
+            ObjectPart<'T,System.Nullable<int64>>
+        
+        /// <summary>A <c>Nullable&lt;decimal&gt;</c>. Use this for money rather than float.</summary>
+        val decimal:
+          name: string ->
+            get: ('T -> System.Nullable<decimal>) ->
+            ObjectPart<'T,System.Nullable<decimal>>
+        
+        /// <summary>A <c>Nullable&lt;float&gt;</c>.</summary>
+        val float:
+          name: string ->
+            get: ('T -> System.Nullable<float>) ->
+            ObjectPart<'T,System.Nullable<float>>
+        
+        /// <summary>A <c>Nullable&lt;bool&gt;</c>.</summary>
+        val bool:
+          name: string ->
+            get: ('T -> System.Nullable<bool>) ->
+            ObjectPart<'T,System.Nullable<bool>>
+        
+        /// <summary>A <c>Nullable&lt;Guid&gt;</c>.</summary>
+        val guid:
+          name: string ->
+            get: ('T -> System.Nullable<System.Guid>) ->
+            ObjectPart<'T,System.Nullable<System.Guid>>
+        
+        /// <summary>A <c>Nullable&lt;DateOnly&gt;</c>.</summary>
+        val dateOnly:
+          name: string ->
+            get: ('T -> System.Nullable<System.DateOnly>) ->
+            ObjectPart<'T,System.Nullable<System.DateOnly>>
+        
+        /// <summary>A <c>Nullable&lt;DateTimeOffset&gt;</c>.</summary>
+        val dateTimeOffset:
+          name: string ->
+            get: ('T -> System.Nullable<System.DateTimeOffset>) ->
+            ObjectPart<'T,System.Nullable<System.DateTimeOffset>>
+        
+        /// <summary>
+        /// A nullable array, read as a list and handed back as an array. Optional
+        /// in the description, admitting null, defaulting to empty.
+        /// </summary>
+        /// <example><code lang="fsharp">
+        /// RequestField.array "lines" lineSchema (fun r -> r.Lines)
+        /// </code></example>
+        val array:
+          name: string ->
+            element: Schema<'F> ->
+            get: ('T -> 'F array | null) -> ObjectPart<'T,'F array>
+        
+        /// <summary>
+        /// A nullable dictionary of uniform values, read as a map and handed back as
+        /// a dictionary. Optional in the description, admitting null, defaulting to
+        /// empty.
+        /// </summary>
+        /// <example><code lang="fsharp">
+        /// RequestField.dictionary "dimensions" Schema.string (fun r -> r.Dimensions)
+        /// </code></example>
+        val dictionary:
+          name: string ->
+            value: Schema<'V> ->
+            get: ('T -> System.Collections.Generic.IDictionary<string,'V> | null) ->
+            ObjectPart<'T,System.Collections.Generic.Dictionary<string,'V>>
+        
+        /// <summary>An array the record declares non-nullable; see <c>WireField.requiredArray</c>.</summary>
+        val requiredArray:
+          name: string ->
+            element: Schema<'F> ->
+            get: ('T -> 'F array) -> ObjectPart<'T,'F array>
+        
+        /// <summary>A dictionary the record declares non-nullable; see <c>WireField.requiredDictionary</c>.</summary>
+        val requiredDictionary:
+          name: string ->
+            value: Schema<'V> ->
+            get: ('T -> System.Collections.Generic.IDictionary<string,'V>) ->
+            ObjectPart<'T,System.Collections.Generic.Dictionary<string,'V>>
+
