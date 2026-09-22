@@ -113,6 +113,13 @@ rather than as `^\\d+$`. The HTML-safe escaping the default encoder applies
 only matters when JSON is injected into a page unescaped, which is not what
 happens to a schema document.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

@@ -111,6 +111,30 @@ documentation, trimmability and package metadata; `tests/` and `samples/` turn
 those back off. A property true of every project lives at the root and nowhere
 else. All output goes to `artifacts/`, packages to `artifacts/packages`.
 
+## Signature files are generated, not written
+
+Every shipping package carries a `Surface.fsi`: its public surface as the
+compiler infers it, with every value's full signature and documentation. It
+exists because XML documentation has nowhere to put a return type, so a reader
+working from the package on disk was learning what a function hands back by
+compiling something and reading the error — four such cycles in one adoption,
+for information the package already knew.
+
+It is written by the build, from the implementation, and committed. Not
+hand-written, which was the suggested form. A hand-written signature file is a
+contract the compiler enforces, and that has a real benefit — the surface is
+declared, and nothing becomes public by accident — and a real cost: fifteen
+packages of signatures kept in step with the code, and a surface frozen until
+somebody edits two files. The suite already controls visibility explicitly with
+`private` and `[<RequireQualifiedAccess>]`, so the enforcement would buy little.
+What a signature file is actually for — seeing the surface, and seeing it
+change — the generated one gives: it cannot drift, and because it is committed,
+a change to the public surface is a diff in review. CI fails when the committed
+copy is stale.
+
+Ruled out: stating the return type in each `<summary>` by hand. It answers the
+question one function at a time and drifts the moment a signature changes.
+
 ## Open
 
 | Question | State |

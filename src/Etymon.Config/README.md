@@ -113,6 +113,13 @@ Keys are matched case-insensitively and `__` separates path segments — the sam
 convention Docker, Kubernetes and `Microsoft.Extensions.Configuration` already
 use, so an existing deployment needs no changes.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

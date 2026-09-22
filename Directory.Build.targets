@@ -73,4 +73,57 @@
 
   </Target>
 
+  <!--
+    The public surface of every shipping package, as a signature file the
+    compiler writes on every build.
+
+    .NET XML documentation has nowhere to put a return type. The generated member
+    names carry parameter types and nothing else, so a reader working from the
+    package on disk — the .xml and the .dll, which is all an adopter sees —
+    learns what a function hands back by compiling something and reading the
+    error. Surface.fsi is the answer: every public value with its full signature
+    and its documentation, one file per package, shipped at the root of the
+    nupkg next to README.md.
+
+    Generated rather than written. A hand-written signature file is a contract
+    the compiler enforces, which is a real benefit with a real cost: fifteen
+    packages of signatures kept in step with the code, and a surface that is
+    frozen until somebody edits two files. This one is a record the compiler
+    produces from the implementation, so it cannot drift; and it is committed,
+    so a change to the public surface shows up as a diff in review — which is
+    the benefit a signature file exists to give, without the upkeep. CI fails
+    when the committed copy is stale.
+
+    Both target frameworks produce the same surface (checked when this was
+    added), so it is written from one of them.
+  -->
+  <PropertyGroup>
+    <EtymonSurfaceFramework Condition="'$(EtymonSurfaceFramework)' == ''">net10.0</EtymonSurfaceFramework>
+    <_EtymonWritesSurface Condition="'$(IsPackable)' == 'true' AND '$(IncludeBuildOutput)' != 'false'">true</_EtymonWritesSurface>
+  </PropertyGroup>
+
+  <!-- Each framework writes to its own obj directory, so parallel inner builds
+       never race on one file. -->
+  <Target Name="EtymonRequestSurface"
+          BeforeTargets="CoreCompile"
+          Condition="'$(_EtymonWritesSurface)' == 'true'">
+    <PropertyGroup>
+      <OtherFlags>$(OtherFlags) --sig:"$(IntermediateOutputPath)Surface.fsi"</OtherFlags>
+    </PropertyGroup>
+  </Target>
+
+  <!-- A plain copy. Routing the text through items would let MSBuild on Unix
+       normalise every backslash in a doc comment as if it were a path, so the
+       ubuntu and macOS builds would disagree with the Windows one. The copy is
+       byte-exact. The compiler writes CRLF on Windows and Linux alike (checked on
+       both), and .gitattributes normalises *.fsi to LF in the repository, so
+       the staleness check compares content and never line endings. -->
+  <Target Name="EtymonWriteSurface"
+          AfterTargets="CoreCompile"
+          Condition="'$(_EtymonWritesSurface)' == 'true' AND '$(TargetFramework)' == '$(EtymonSurfaceFramework)' AND Exists('$(IntermediateOutputPath)Surface.fsi')">
+    <Copy SourceFiles="$(IntermediateOutputPath)Surface.fsi"
+          DestinationFiles="$(MSBuildProjectDirectory)/Surface.fsi"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

@@ -250,6 +250,13 @@ startling. Use `Schema.toJsonWith` with
 `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` if the output is for a person and
 never for a web page. UTC timestamps render as `Z`, so the common case is clean.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

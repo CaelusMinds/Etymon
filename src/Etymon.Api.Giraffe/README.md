@@ -56,6 +56,13 @@ route has to be data for the OpenAPI document and the typed client to come out
 of the same declaration. Etymon endpoints therefore sit **alongside** Giraffe's
 routing combinators rather than inside them.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).

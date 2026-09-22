@@ -33,6 +33,8 @@
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../assets/icon.png" Pack="true" PackagePath="\" Visible="false" />
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <!-- The generated signature file; see Directory.Build.targets at the root. -->
+    <None Include="Surface.fsi" Pack="true" PackagePath="\" Condition="Exists('$(MSBuildProjectDirectory)/Surface.fsi')" />
   </ItemGroup>
 
 </Project>

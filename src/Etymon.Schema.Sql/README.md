@@ -235,6 +235,13 @@ correct answer and far better than nothing.
   SQLite output is executed against a real in-memory database in the test suite;
   the equivalent PostgreSQL run needs Testcontainers and is not wired up.
 
+## Public surface
+
+The complete public surface of this package, every value with its full signature
+and its documentation, is in `Surface.fsi` beside this file. It is written by the
+build from the implementation, so it is where to learn what a function hands
+back without compiling anything.
+
 ## Licence
 
 [MIT](https://github.com/CaelusMinds/Etymon/blob/main/LICENSE).
