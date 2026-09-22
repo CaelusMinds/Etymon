@@ -345,6 +345,56 @@ module OpenApi =
         result
 
     /// <summary>
+    /// The pair needed to place a schema in an OpenAPI document: its named types
+    /// for <c>components/schemas</c>, and a root already addressed at them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>toComponents</c> gives the components and does not say which of them is
+    /// the root, so a caller cannot write the reference that points at it.
+    /// <c>toJsonSchema</c> gives a root, addressed at <c>#/$defs/</c>, which is
+    /// the wrong address space for an OpenAPI document. Assembling one from many
+    /// schemas therefore meant a lift-and-re-address pass in every consumer.
+    /// </para>
+    /// <para>
+    /// That pass has a trap in it. The natural implementation reads <c>$ref</c>
+    /// at the <em>root</em> of the standalone document and rewrites it, which is
+    /// right for an operation returning one object and silently wrong for one
+    /// returning a list: an array carries its <c>$ref</c> one level down, under
+    /// <c>items</c>, so the root has none, the lift finds nothing, and the
+    /// response is described as an empty object. Nothing fails. The document is
+    /// still valid OpenAPI, and a test asserting "this path is described" is
+    /// satisfied by a description that says nothing.
+    /// </para>
+    /// <para>
+    /// <c>Root</c> is whatever the schema is — a reference, an array of
+    /// references, a nullable one, or an inline object when there is nothing
+    /// named to reference.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// let listing = OpenApi.toComponentsWithRoot accountListSchema
+    /// // listing.Root       = { "type": "array", "items": { "$ref": "#/components/schemas/Account" } }
+    /// // listing.Components = { "Account": { ... } }
+    /// </code></example>
+    let toComponentsWithRoot
+        (schema: Schema<'T>)
+        : {|
+              Root: JsonObject
+              Components: JsonObject
+          |}
+        =
+        let definitions = SchemaInfo.definitions schema.Info
+
+        {|
+            // Inline only when there is nothing named to point at. Otherwise the
+            // root is a reference, and the dialect decides its address -- which
+            // is the whole reason this does not need a rewriting pass.
+            Root = render SchemaDialect.OpenApi31 (Map.isEmpty definitions) schema.Info
+            Components = toComponents schema
+        |}
+
+    /// <summary>
     /// A standalone JSON Schema 2020-12 document. Named types are written once
     /// under <c>$defs</c> and referenced, so a recursive type is expressible.
     /// </summary>

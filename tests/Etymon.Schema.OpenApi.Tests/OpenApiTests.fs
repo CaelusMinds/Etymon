@@ -27,6 +27,76 @@ let tests =
         "OpenApi"
         [
             testList
+                "assembling a document from many schemas"
+                [
+                    test "the root of an object is a reference into components" {
+                        let assembled = OpenApi.toComponentsWithRoot Person.schema
+
+                        Expect.equal
+                            (at [ "$ref" ] assembled.Root)
+                            (Some "\"#/components/schemas/Person\"")
+                            "addressed where an OpenAPI document keeps them"
+
+                        Expect.isTrue
+                            (assembled.Components.ContainsKey "Person")
+                            "and the component is there to point at"
+                    }
+
+                    test "the root of a list carries its reference under items" {
+                        // The trap. A hand-rolled lift that reads $ref at the
+                        // root finds nothing here, lifts nothing, and describes
+                        // the response as an empty object. The document stays
+                        // valid OpenAPI and every "this path is described" test
+                        // stays green, so nothing says otherwise.
+                        let assembled = OpenApi.toComponentsWithRoot (Schema.list Person.schema)
+
+                        Expect.equal (at [ "type" ] assembled.Root) (Some "\"array\"") "an array"
+
+                        Expect.equal
+                            (at [ "items"; "$ref" ] assembled.Root)
+                            (Some "\"#/components/schemas/Person\"")
+                            "whose items are the reference, one level down"
+
+                        Expect.isTrue (assembled.Components.ContainsKey "Person") "components are lifted either way"
+                    }
+
+                    test "the root is never an empty object while there is something to describe" {
+                        // Stated as its own assertion because "describes nothing"
+                        // is precisely the shape of the silent failure.
+                        for root in
+                            [
+                                (OpenApi.toComponentsWithRoot Person.schema).Root
+                                (OpenApi.toComponentsWithRoot (Schema.list Person.schema)).Root
+                                (OpenApi.toComponentsWithRoot (Schema.list (Schema.list Person.schema))).Root
+                            ] do
+                            Expect.isGreaterThan root.Count 0 "a root that says nothing describes nothing"
+                    }
+
+                    test "components carry every named type reachable, not just the root" {
+                        let assembled = OpenApi.toComponentsWithRoot (Schema.list Person.schema)
+
+                        Expect.equal
+                            (assembled.Components |> Seq.map (fun p -> p.Key) |> Seq.sort |> List.ofSeq)
+                            (OpenApi.toComponents Person.schema
+                             |> Seq.map (fun p -> p.Key)
+                             |> Seq.sort
+                             |> List.ofSeq)
+                            "the same set toComponents would give"
+                    }
+
+                    test "a schema with nothing named is inlined rather than left dangling" {
+                        let assembled = OpenApi.toComponentsWithRoot Schema.string
+
+                        Expect.equal
+                            (at [ "type" ] assembled.Root)
+                            (Some "\"string\"")
+                            "inline, because there is no component"
+
+                        Expect.equal assembled.Components.Count 0 "and nothing to lift"
+                    }
+                ]
+
+            testList
                 "primitives map to the expected type and format"
                 [
                     let expect name schema expected =

@@ -7,10 +7,30 @@ Depends on `Etymon.Core` and `Etymon.Schema`, and on no NuGet package beyond
 `FSharp.Core`.
 
 ```fsharp
-OpenApi.toJsonSchema personSchema      // a standalone JSON Schema 2020-12 document
-OpenApi.toComponents personSchema      // the components/schemas object for OpenAPI 3.1
-OpenApi.toJsonSchemaText personSchema  // the same, rendered as indented text
+OpenApi.toJsonSchema personSchema          // a standalone JSON Schema 2020-12 document
+OpenApi.toComponents personSchema          // the components/schemas object for OpenAPI 3.1
+OpenApi.toComponentsWithRoot personSchema  // both, with the root addressed at them
+OpenApi.toJsonSchemaText personSchema      // the same, rendered as indented text
 ```
+
+Assembling one document from many operations wants the **pair**:
+`toComponentsWithRoot` gives the named types for `components/schemas` and a root
+already addressed at `#/components/schemas/…`, so nothing has to re-address
+anything:
+
+```fsharp
+let listing = OpenApi.toComponentsWithRoot (Schema.list accountSchema)
+// listing.Root       = { "type": "array", "items": { "$ref": "#/components/schemas/Account" } }
+// listing.Components = { "Account": { … } }
+```
+
+Doing that lift by hand has a trap in it. The natural implementation reads
+`$ref` at the **root** of the standalone document and rewrites it — correct for
+an operation returning one object, and silently wrong for one returning a list,
+because an array carries its `$ref` under `items` and the root has none. The
+lift finds nothing and the response is described as an empty object. Nothing
+fails, the document is still valid OpenAPI, and a test asserting "this path is
+described" is satisfied by a description that says nothing.
 
 The document is derived from the same schema value that does the encoding and
 decoding, so it cannot describe something different from what your code actually
