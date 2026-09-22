@@ -33,6 +33,25 @@ module Zip =
 let private messagesOf (v: Validation<'T>) =
     v |> Validation.errorList |> List.map (fun e -> e.Message)
 
+// A coded value, as an application would carry a role or a status: the shape
+// that made a partial parse look like the natural thing to wrap.
+type Role =
+    | Accountant
+    | Bookkeeper
+
+let private parseRole (s: string) =
+    match s with
+    | "accountant" -> Some Accountant
+    | "bookkeeper" -> Some Bookkeeper
+    | _ -> None
+
+let private renderRole role =
+    match role with
+    | Accountant -> "accountant"
+    | Bookkeeper -> "bookkeeper"
+
+type Code = Code of string
+
 let tests =
     testList
         "Refine"
@@ -291,6 +310,91 @@ let tests =
                             (Validation.errorCount (Refine.create tags [ "a"; "a"; "a"; "a" ]))
                             2
                             "too many and not distinct is two errors"
+                    }
+                ]
+            testList
+                "ordering"
+                [
+                    test "a rule before wrap guards the conversion after it" {
+                        // The rules before a wrap run before it. A check that a
+                        // code is known, then a wrap that looks it up, must
+                        // refuse "god" rather than throw from inside the decoder
+                        // -- which, on a replay of stored events, reads as data
+                        // corruption rather than as a validation error.
+                        let role =
+                            Refine.identity "Role"
+                            |> Refine.satisfies "known_role" "is not a role" (fun s -> (parseRole s).IsSome)
+                            |> Refine.wrap (fun s -> (parseRole s).Value) renderRole
+
+                        Expect.equal (Refine.create role "accountant") (Ok Accountant) "a known code converts"
+
+                        Expect.equal
+                            (messagesOf (Refine.create role "god"))
+                            [ "is not a role" ]
+                            "an unknown one is refused, not thrown"
+                    }
+
+                    test "parse refuses with its own rule, at the path" {
+                        let role =
+                            Refine.identity "Role"
+                            |> Refine.parse "known_role" "is not a role" parseRole renderRole
+
+                        let path = Path.field "role" Path.root
+
+                        match Validation.errorList (Refine.createAt path role "god") with
+                        | [ e ] ->
+                            Expect.equal e.Message "is not a role" "the description given"
+
+                            Expect.equal
+                                e.Reason
+                                (ErrorReason.ConstraintFailed(Constraint.Opaque("known_role", "is not a role")))
+                                "the rule, carrying the code given"
+
+                            Expect.equal e.Path path "at the value's path"
+                        | other -> failtestf "expected one refusal, got %A" other
+
+                        Expect.equal (Refine.create role "bookkeeper") (Ok Bookkeeper) "and a known code converts"
+                    }
+
+                    test "parse publishes its rule like any other" {
+                        let role =
+                            Refine.identity "Role"
+                            |> Refine.parse "known_role" "is not a role" parseRole renderRole
+
+                        Expect.equal
+                            role.Constraints
+                            [ Constraint.Opaque("known_role", "is not a role") ]
+                            "in the constraints"
+                    }
+
+                    test "validate still runs the rules before a wrap" {
+                        // wrap keeps them in Checks, mapped back through destruct,
+                        // so a value built by another route is still held to them.
+                        let code =
+                            Refine.ofString "Code"
+                            |> Refine.nonEmpty
+                            |> Refine.wrap Code (fun (Code s) -> s)
+
+                        Expect.isError (Refine.validate code (Code "")) "an empty code fails the rule it never met"
+                        Expect.isOk (Refine.validate code (Code "x")) "and a non-empty one passes"
+                    }
+
+                    test "a rule before wrap refuses before a rule after it sees a value" {
+                        let code =
+                            Refine.ofString "Code"
+                            |> Refine.nonEmpty
+                            |> Refine.wrap Code (fun (Code s) -> s)
+                            |> Refine.satisfies "short" "must be short" (fun (Code s) -> s.Length <= 3)
+
+                        Expect.equal
+                            (messagesOf (Refine.create code "toolong"))
+                            [ "must be short" ]
+                            "the post-wrap rule runs"
+
+                        Expect.equal
+                            (Validation.errorCount (Refine.create code ""))
+                            1
+                            "only the pre-wrap rule reports on an empty code"
                     }
                 ]
         ]

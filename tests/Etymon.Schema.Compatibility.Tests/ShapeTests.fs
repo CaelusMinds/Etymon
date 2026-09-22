@@ -20,6 +20,33 @@ let private signInSchema =
         return { Email = email; Password = password }
     }
 
+type private Suspended =
+    {
+        Reason: string
+        Reasons: string list
+        History: string list option
+    }
+
+let private reasonRule = (Check.oneOf [ "fired"; "left" ]).Constraint
+
+let private suspendedSchema =
+    let reason = Schema.string |> Schema.constrain (Check.oneOf [ "fired"; "left" ])
+
+    Schema.object "Suspended" {
+        let! r = Schema.required "reason" reason (fun x -> x.Reason)
+        and! rs = Schema.required "reasons" (Schema.list reason) (fun x -> x.Reasons)
+
+        and! history =
+            Schema.required "history" (Schema.nullable (Schema.list reason)) (fun x -> x.History)
+
+        return
+            {
+                Reason = r
+                Reasons = rs
+                History = history
+            }
+    }
+
 let tests =
     testList
         "Shape.ofSchema"
@@ -68,5 +95,26 @@ let tests =
                 match message with
                 | Some text -> Expect.stringContains text "ofSchemaNamed" "and says what to do instead"
                 | None -> failtest "an unnamed schema was accepted, and would snapshot under no name"
+            }
+
+            test "the rules on a sequence's elements are carried, not dropped" {
+                // The fields most likely to hold a code set are the list-typed
+                // ones -- roles, permissions, grants -- which were exactly the
+                // ones left unchecked.
+                let shape = Shape.ofSchema 1 suspendedSchema
+
+                let field name =
+                    shape.Fields |> List.find (fun f -> f.Name = name)
+
+                Expect.equal (field "reason").Constraints [ reasonRule ] "a scalar's rules, as before"
+                Expect.equal (field "reason").ElementConstraints [] "and no element rules"
+                Expect.equal (field "reasons").Constraints [] "a sequence has no rules of its own"
+                Expect.equal (field "reasons").ElementConstraints [ reasonRule ] "its elements do"
+            }
+
+            test "element rules are found through a nullable list" {
+                let shape = Shape.ofSchema 1 suspendedSchema
+                let field = shape.Fields |> List.find (fun f -> f.Name = "history")
+                Expect.equal field.ElementConstraints [ reasonRule ] "a list that may itself be null still reports them"
             }
         ]

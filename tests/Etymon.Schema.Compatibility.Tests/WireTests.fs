@@ -15,6 +15,7 @@ let private field name t required : ShapeField =
         Type = t
         Required = required
         Constraints = []
+        ElementConstraints = []
     }
 
 let private shape name version fields : Shape =

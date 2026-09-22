@@ -19,6 +19,7 @@ let private field name t required constraints : ShapeField =
         Type = t
         Required = required
         Constraints = constraints
+        ElementConstraints = []
     }
 
 let private shape version fields : Shape =
@@ -320,6 +321,40 @@ let tests =
                             (Compatibility.report [])
                             "No shape changed"
                             "rather than printing nothing at all"
+                    }
+                ]
+
+            testList
+                "element rules"
+                [
+                    test "narrowing the rules on a sequence's elements is reported" {
+                        let rule codes = (Check.oneOf codes).Constraint
+
+                        let roles codes =
+                            { field "roles" (FieldType.Sequence(FieldType.Scalar "string")) true [] with
+                                ElementConstraints = [ rule codes ]
+                            }
+
+                        let before = shape 1 [ roles [ "read"; "write"; "admin" ] ]
+                        let after = shape 2 [ roles [ "read"; "write" ] ]
+
+                        match changesFor before after with
+                        | [ change ] ->
+                            Expect.stringContains
+                                change.Description
+                                "each element of 'roles'"
+                                "named as the elements' rules"
+                        | other -> failtestf "expected the element rules to be reported, got %A" other
+                    }
+
+                    test "a report ends its sentences once" {
+                        // Every reason already ends in a full stop; the report
+                        // used to add another to each.
+                        let a = shape 1 [ field "a" text true [] ]
+                        let b = shape 2 [ field "a" text false [] ]
+                        let rendered = Compatibility.report (changesFor a b)
+                        Expect.isFalse (rendered.Contains "..") "no doubled full stops"
+                        Expect.stringContains rendered "." "but sentences still end"
                     }
                 ]
         ]

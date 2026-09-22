@@ -485,7 +485,6 @@ namespace Etymon
         /// </code></example>
         val bool: Schema<bool>
         
-        /// A scalar carried as a string: written by rendering, read by parsing.
         val private stringly:
           kind: PrimKind ->
             render: ('T -> string) ->
@@ -791,6 +790,38 @@ namespace Etymon
             get: ('T -> 'F option) -> ObjectPart<'T,'F option>
         
         /// <summary>
+        /// A field that is always present and may be <c>null</c>: written as
+        /// <c>"x": null</c> when there is nothing, described as required with a
+        /// nullable type, and read leniently, so that an absent key and a
+        /// <c>null</c> both arrive as <c>None</c>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is what <c>System.Text.Json</c> writes for a nullable field, and
+        /// therefore what every client of a service built on it has been reading.
+        /// Describing such a field as <c>optional</c> tells a generated client to
+        /// expect <c>undefined</c> and hands it <c>null</c>, and tells the
+        /// compatibility snapshot the key might not be there, so that removing it
+        /// later looks safe when it is not.
+        /// </para>
+        /// <para>
+        /// Three fields, three statements. <c>required</c>: the key is there and
+        /// the value is not null. <c>present</c>: the key is there and the value
+        /// may be null. <c>optional</c>: the key may be missing. A missing key is
+        /// read as <c>None</c> here rather than refused, because in practice a
+        /// caller means the same thing by both; where the difference matters,
+        /// <c>required</c> with <c>Schema.nullable</c> refuses the absent key.
+        /// </para>
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// Schema.present "note" Schema.string (fun r -> r.Note) // r.Note : string option
+        /// </code></example>
+        val present:
+          name: string ->
+            schema: Schema<'F> ->
+            get: ('T -> 'F option) -> ObjectPart<'T,'F option>
+        
+        /// <summary>
         /// A field that may be absent, standing in for a value when it is. The
         /// default is always written back out, so that a round trip is stable.
         /// </summary>
@@ -948,26 +979,22 @@ namespace Etymon
     /// A crossing that only went one way would remove the smaller half of the work.
     /// </para>
     /// <para>
-    /// <strong>This is not a shorter spelling of <c>Schema.optional</c>.</strong> They
-    /// say different things:
-    /// </para>
-    /// <list type="bullet">
-    /// <item><c>Schema.optional</c> says <em>this key may be absent</em>. That is a
-    /// statement about the contract.</item>
-    /// <item><c>WireField.text</c> says <em>this field is nullable because of how it
-    /// arrived</em>. That is a statement about the record, and a temporary one.</item>
-    /// </list>
-    /// <para>
-    /// They are spelled the same today and they are not the same idea. Naming the
-    /// second one means that when those records stop being nullable, this module is
-    /// the list of everywhere it mattered.
+    /// <strong>What a field here says, in all three places.</strong> It is written
+    /// as <c>"x": null</c> when there is nothing, never as an absent key, because
+    /// that is what <c>System.Text.Json</c> writes and what every client has been
+    /// reading. It is described as required with a nullable type, so a generated
+    /// client expects <c>null</c> rather than <c>undefined</c>, and the
+    /// compatibility snapshot records a key that is always there. It reads an
+    /// absent key and a <c>null</c> the same way, because in practice callers mean
+    /// the same thing by both. It is built on <c>Schema.present</c>;
+    /// <c>Schema.optional</c> is the different statement, that a key may be missing.
     /// </para>
     /// <para>
     /// The rule that makes adoption mechanical: <strong>a field the record declares
-    /// nullable is optional in the Schema; a field it declares non-nullable is
-    /// <c>Schema.required</c>.</strong> Take the record at its word. Without that
-    /// rule the first question on every type is "should this be required?", and the
-    /// answer drifts across a codebase.
+    /// nullable is present-and-nullable in the Schema; a field it declares
+    /// non-nullable is <c>Schema.required</c>.</strong> Take the record at its word.
+    /// Without that rule the first question on every type is "should this be
+    /// required?", and the answer drifts across a codebase.
     /// </para>
     /// </remarks>
     [<RequireQualifiedAccess>]
@@ -977,6 +1004,18 @@ namespace Etymon
         /// record wants rather than the shape the decoder worked in.
         val private rebound:
           convert: ('A -> 'B) -> part: ObjectPart<'T,'A> -> ObjectPart<'T,'B>
+        
+        /// Reads an absent or null key as a fallback rather than refusing it, with
+        /// the field still described as required. A collection is always written,
+        /// as empty when there is nothing, so required is what the wire carries; and
+        /// a body that omits it, or writes null, means the same thing by it.
+        val private lenient:
+          fallback: 'A ->
+            name: string -> part: ObjectPart<'T,'A> -> ObjectPart<'T,'A>
+        
+        val private toDictionary:
+          map: Map<string,'V> ->
+            System.Collections.Generic.Dictionary<string,'V>
         
         /// <summary>
         /// A nullable field of any <c>Schema</c>. Everything below is a convenient
@@ -991,6 +1030,10 @@ namespace Etymon
         /// <c>Option.ofObj</c> / <c>Option.toObj</c> pair this module exists to
         /// remove, at exactly the fields where going through a <c>Schema</c> matters
         /// most.
+        /// </para>
+        /// <para>
+        /// It means the same thing as <c>Schema.nullable</c>: a value that may be
+        /// <c>null</c>. The difference is only the shape it binds.
         /// </para>
         /// </remarks>
         /// <example><code lang="fsharp">
@@ -1013,9 +1056,8 @@ namespace Etymon
         
         /// <summary>A nullable string with rules of its own.</summary>
         /// <remarks>
-        /// The constraint applies to the value when there is one. An absent or null
-        /// key is not a rule violation; say so with <c>Schema.required</c> if it
-        /// should be.
+        /// The constraint applies to the value when there is one. A <c>null</c> is
+        /// not a rule violation; say so with <c>Schema.required</c> if it should be.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// WireField.constrainedText "role" (Check.oneOf [ "admin"; "member" ]) (fun r -> r.Role)
@@ -1077,11 +1119,17 @@ namespace Etymon
         /// A nullable array, read as a list and handed back as an array.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// A null array and an absent key are both read as no items, and the value
         /// bound is an empty array rather than null, so it assigns straight into a
-        /// nullable field. That removes a decision at every call site; where the
-        /// difference genuinely matters, say so with <c>Schema.required</c> and a
-        /// nullable element type.
+        /// nullable field and no call site needs a guard. Empty is what is written
+        /// for null, and the field is described as required, because that is what
+        /// the wire carries.
+        /// </para>
+        /// <para>
+        /// Where the difference between absent and empty genuinely carries meaning,
+        /// say so with <c>Schema.optional</c> and a nullable element type.
+        /// </para>
         /// </remarks>
         /// <example><code lang="fsharp">
         /// WireField.array "lines" lineSchema (fun r -> r.Lines)
@@ -1098,7 +1146,8 @@ namespace Etymon
         /// <remarks>
         /// Takes <c>IDictionary</c> rather than <c>Dictionary</c>, so a record
         /// holding either satisfies it. Null and absent are both no entries, for the
-        /// same reason as <c>array</c>.
+        /// same reason as <c>array</c>, and it is described as required for the same
+        /// reason too.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// WireField.dictionary "dimensions" Schema.string (fun r -> r.Dimensions)
@@ -1110,23 +1159,15 @@ namespace Etymon
             ObjectPart<'T,System.Collections.Generic.Dictionary<string,'V>>
         
         /// <summary>
-        /// An array that is always present, read as a list and handed back as an
-        /// array.
+        /// An array the record declares non-nullable, read as a list and handed back
+        /// as an array.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// The counterpart to <c>array</c> for a field the record declares
-        /// non-nullable. Use it whenever the field is not <c>| null</c>, even when
-        /// the array is sometimes empty: empty is not absent.
-        /// </para>
-        /// <para>
-        /// Getting this wrong is quiet. <c>array</c> compiles against a non-nullable
-        /// field and hands back a non-null array, so nothing complains — but it
-        /// describes the field as <strong>optional</strong>, which reaches the
-        /// published OpenAPI document as a nullability a client must handle, and the
-        /// compatibility snapshot as an optionality that makes removing the field
-        /// later look safe when it is breaking.
-        /// </para>
+        /// The counterpart to <c>array</c> for a field that is not <c>| null</c>.
+        /// Both are described as required, because both always write an array; the
+        /// difference is that this one refuses an absent key rather than reading it
+        /// as empty. A non-nullable field that a deserialiser would have left null is
+        /// the defect this declines to paper over.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// WireField.requiredArray "roles" Schema.string (fun p -> p.Roles)
@@ -1137,15 +1178,13 @@ namespace Etymon
             get: ('T -> 'F array) -> ObjectPart<'T,'F array>
         
         /// <summary>
-        /// A dictionary that is always present, read as a map and handed back as a
-        /// dictionary.
+        /// A dictionary the record declares non-nullable, read as a map and handed
+        /// back as a dictionary.
         /// </summary>
         /// <remarks>
-        /// The counterpart to <c>dictionary</c>, and the reason that one is not the
-        /// only path: <c>Schema.required name (Schema.map value)</c> is correct but
-        /// speaks <c>Map</c>, so a record holding a <c>Dictionary</c> has to convert
-        /// in both directions by hand. The correct path should not be the
-        /// inconvenient one.
+        /// The counterpart to <c>dictionary</c>, with the same difference as
+        /// <c>requiredArray</c>: an absent key is refused. Takes <c>IDictionary</c>,
+        /// so a record holding either kind satisfies it.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// WireField.requiredDictionary "references" Schema.string (fun p -> p.References)

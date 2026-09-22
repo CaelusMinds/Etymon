@@ -52,6 +52,12 @@ type ShapeField =
         /// already written or already sent, which is why they are recorded
         /// rather than dropped.
         Constraints: Constraint list
+        /// The rules on each element of a sequence, or each value of a mapping.
+        /// A code set is more often a list of codes than a single one -- roles,
+        /// permissions, grants -- and narrowing it is the same break as narrowing
+        /// a scalar's rules, so it is recorded the same way. One level: the
+        /// elements of a list of lists are not reached.
+        ElementConstraints: Constraint list
     }
 
 /// <summary>
@@ -134,6 +140,15 @@ module Shape =
         | SRef name -> FieldType.Nested name
         | SAnnotated _ -> FieldType.Unknown
 
+    /// The constraints on what a collection holds, looking through a nullable
+    /// wrapper so that a list that may itself be null still reports them.
+    let rec private elementConstraints (info: SchemaInfo) : Constraint list =
+        match SchemaInfo.strip info with
+        | SNullable inner -> elementConstraints inner
+        | SList inner
+        | SMap inner -> SchemaInfo.constraints inner
+        | _ -> []
+
     /// <summary>
     /// The shape of a thing under a name you choose, rather than the one its
     /// <c>Schema</c> carries.
@@ -163,6 +178,7 @@ module Shape =
                         Type = typeOf field.Schema
                         Required = field.Required
                         Constraints = SchemaInfo.constraints field.Schema
+                        ElementConstraints = elementConstraints field.Schema
                     }
                 )
             | _ ->

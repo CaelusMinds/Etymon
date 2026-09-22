@@ -143,10 +143,39 @@ module Refine =
     let uppercased (refinement: Refinement<'Raw, string>) =
         normalise (fun (s: string) -> s.ToUpperInvariant()) refinement
 
+    // Runs the rules added so far, then a conversion, so that a rule can guard
+    // the conversion that follows it. Every rule runs and their errors
+    // accumulate, as they do at the end; only the conversion waits for all of
+    // them to pass.
+    let private afterChecks (refinement: Refinement<'Raw, 'T>) (convert: Path -> 'T -> Validation<'U>) =
+        fun path raw ->
+            match refinement.Convert path raw with
+            | Error e -> Error e
+            | Ok value ->
+                match refinement.Checks |> List.collect (fun run -> run path value) with
+                | [] -> convert path value
+                | first :: rest -> Error(ValidationErrors.ofHeadTail first rest)
+
     /// <summary>
     /// Changes the type a refinement produces, typically by wrapping it in a single-case
     /// union so that the constrained type is distinct from its representation.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rules added before <c>wrap</c> run before it. A rule can therefore
+    /// guard the conversion that follows it -- a check that a code is known,
+    /// then a wrap that looks it up -- and a value that breaks the rule is
+    /// refused before the conversion ever sees it. For a conversion that can
+    /// refuse on its own, use <c>parse</c>.
+    /// </para>
+    /// <para>
+    /// Those rules also stay in <c>Checks</c>, mapped back through
+    /// <c>destruct</c>, because <c>validate</c> runs the checks alone on a value
+    /// that already exists. A rule that passed before the conversion passes
+    /// again afterwards; the cost is a second evaluation of a predicate on the
+    /// happy path.
+    /// </para>
+    /// </remarks>
     /// <example><code lang="fsharp">
     /// type Email = private Email of string
     /// Refine.ofString "Email"
@@ -157,9 +186,58 @@ module Refine =
         {
             Name = refinement.Name
             Constraints = refinement.Constraints
-            Convert = fun path raw -> refinement.Convert path raw |> Validation.map construct
+            Convert = afterChecks refinement (fun _ value -> Ok(construct value))
             Checks =
                 refinement.Checks
+                |> List.map (fun run -> fun path value -> run path (destruct value))
+            Extract = destruct >> refinement.Extract
+        }
+
+    /// <summary>
+    /// Changes the type a refinement produces by a conversion that can refuse.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart to <c>wrap</c> for a parse that is partial: a code that
+    /// may not be one of the known ones, a string that may not be a date. A
+    /// refusal is a validation error at the value's path carrying the code and
+    /// description given here, and the rule is published in the refinement's
+    /// constraints like any other. The rules added before it run first.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Refine.ofString "Role"
+    /// |> Refine.parse "known_role" "is not a role" Role.tryParse Role.render
+    /// </code></example>
+    let parse
+        (code: string)
+        (description: string)
+        (construct: 'T -> 'U option)
+        (destruct: 'U -> 'T)
+        (refinement: Refinement<'Raw, 'T>)
+        : Refinement<'Raw, 'U>
+        =
+        let rule = Check.opaque code description (fun value -> (construct value).IsSome)
+
+        {
+            Name = refinement.Name
+            Constraints = refinement.Constraints @ [ rule.Constraint ]
+            Convert =
+                afterChecks
+                    refinement
+                    (fun path value ->
+                        match construct value with
+                        | Some built -> Ok built
+                        | None -> Error(ValidationErrors.one (Check.toError rule path))
+                    )
+            Checks =
+                refinement.Checks
+                @ [
+                    (fun path value ->
+                        if rule.Satisfies value then
+                            []
+                        else
+                            [ Check.toError rule path ]
+                    )
+                ]
                 |> List.map (fun run -> fun path value -> run path (destruct value))
             Extract = destruct >> refinement.Extract
         }

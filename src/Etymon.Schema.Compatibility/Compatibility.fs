@@ -219,6 +219,18 @@ module Compatibility =
                                     "already-deployed code may reject what is written now, if the rules were widened."
                                 ]
 
+                        if constraintsDiffer beforeField.ElementConstraints afterField.ElementConstraints then
+                            change
+                                event
+                                (Some afterField.Name)
+                                $"the rules on each element of '%s{afterField.Name}' changed"
+                                [
+                                    Direction.Backward,
+                                    "what was already written may hold elements that do not satisfy the new rules, if they were narrowed."
+                                    Direction.Forward,
+                                    "already-deployed code may reject elements written now, if the rules were widened."
+                                ]
+
                         match beforeField.Type, afterField.Type with
                         | FieldType.Choice(_, beforeCases), FieldType.Choice(_, afterCases) ->
                             let gained = afterCases |> List.except beforeCases
@@ -326,7 +338,7 @@ module Compatibility =
                                 | Direction.Backward -> "Backward"
                                 | Direction.Forward -> "Forward"
 
-                            $"    %s{label} ({Direction.describe direction}): %s{why}."
+                            $"    %s{label} ({Direction.describe direction}): %s{why}"
                         )
 
                     let heading = $"  %s{c.Shape}: %s{c.Description}."
