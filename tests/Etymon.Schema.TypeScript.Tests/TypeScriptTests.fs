@@ -76,6 +76,59 @@ module Widths =
                 }
         }
 
+/// Keys that are legal JSON and not legal bare TypeScript names: a space, a
+/// leading digit, a quote, a hyphen. Database column names arrive like this.
+type Awkward =
+    {
+        Spaced: string
+        Digit: int
+        Quoted: string
+        Plain: string
+    }
+
+module Awkward =
+    let schema =
+        Schema.object "Awkward" {
+            let! spaced = Schema.required "order total" Schema.string (fun a -> a.Spaced)
+            and! digit = Schema.required "2x" Schema.int (fun a -> a.Digit)
+            and! quoted = Schema.required "say \"hi\"" Schema.string (fun a -> a.Quoted)
+            and! plain = Schema.required "$plain_1" Schema.string (fun a -> a.Plain)
+
+            return
+                {
+                    Spaced = spaced
+                    Digit = digit
+                    Quoted = quoted
+                    Plain = plain
+                }
+        }
+
+type Tagged =
+    | On
+    | Off
+
+module Tagged =
+    let schema =
+        Schema.union
+            "Tagged"
+            "the state"
+            [
+                Schema.caseUnit
+                    "on"
+                    On
+                    (function
+                    | On -> true
+                    | _ -> false
+                    )
+                Schema.caseUnit
+                    "off"
+                    Off
+                    (function
+                    | Off -> true
+                    | _ -> false
+                    )
+            ]
+
 type Membership = { Role: string; Tier: string option }
 
 module Membership =
@@ -204,6 +257,22 @@ let tests =
                             block
                             "{ readonly kind: \"circle\"; readonly value: number }"
                             "and a case with one keeps it"
+                    }
+
+                    test "a key TypeScript cannot name bare is quoted, and an identifier is left alone" {
+                        let block = blockFor "Awkward" (TypeScript.emitOne Awkward.schema)
+
+                        // `readonly order total: string;` does not compile; a
+                        // quoted key is the same property to a TypeScript reader.
+                        Expect.stringContains block "readonly \"order total\": string;" "a space"
+                        Expect.stringContains block "readonly \"2x\": number;" "a leading digit"
+                        Expect.stringContains block "readonly \"say \\\"hi\\\"\": string;" "a quote, escaped"
+                        Expect.stringContains block "readonly $plain_1: string;" "an identifier stays bare"
+                    }
+
+                    test "a union's tag TypeScript cannot name bare is quoted too" {
+                        let block = blockFor "Tagged" (TypeScript.emitOne Tagged.schema)
+                        Expect.stringContains block "{ readonly \"the state\": \"on\" }" "the tag, quoted"
                     }
 
                     test "a union closes on its last case" {

@@ -97,6 +97,28 @@ module TypeScript =
             |> ignore
         | None -> ()
 
+    /// A key as TypeScript accepts the key: bare when the key is an
+    /// identifier, a quoted string otherwise. `order total` and `2x` are legal
+    /// JSON keys and illegal bare TypeScript names, so writing them bare would
+    /// not compile; quoted, they name the same property.
+    let private propertyName (key: string) =
+        let starts (c: char) = Char.IsLetter c || c = '_' || c = '$'
+        let continues (c: char) = starts c || Char.IsDigit c
+
+        if key <> "" && starts key[0] && Seq.forall continues key then
+            key
+        else
+            let quoted = StringBuilder("\"")
+
+            for c in key do
+                match c with
+                | '"' -> quoted.Append("\\\"") |> ignore
+                | '\\' -> quoted.Append("\\\\") |> ignore
+                | c when c < ' ' -> quoted.Append("\\u").Append((int c).ToString("x4")) |> ignore
+                | c -> quoted.Append(c) |> ignore
+
+            quoted.Append('"').ToString()
+
     let private emitObject (name: string) (fields: FieldInfo list) (builder: StringBuilder) =
         builder.Append("export interface ").Append(name).AppendLine(" {") |> ignore
 
@@ -122,7 +144,12 @@ module TypeScript =
             // generated type lies about its payload.
             let marker = if field.Required then ": " else "?: "
 
-            builder.Append("  readonly ").Append(field.Name).Append(marker).Append(rendered).AppendLine(";")
+            builder
+                .Append("  readonly ")
+                .Append(propertyName field.Name)
+                .Append(marker)
+                .Append(rendered)
+                .AppendLine(";")
             |> ignore
 
         builder.AppendLine("}") |> ignore
@@ -140,7 +167,7 @@ module TypeScript =
                     | SPrim PrimKind.Raw -> ""
                     | _ -> "; readonly value: " + typeOf payload
 
-                "  | { readonly " + tag + ": \"" + caseTag + "\"" + body + " }"
+                "  | { readonly " + propertyName tag + ": \"" + caseTag + "\"" + body + " }"
             )
 
         // The semicolon closes the last case rather than sitting on a line of its

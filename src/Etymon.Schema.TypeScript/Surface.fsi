@@ -53,6 +53,12 @@ namespace Etymon
           indent: string ->
             text: string option -> builder: System.Text.StringBuilder -> unit
         
+        /// A key as TypeScript accepts the key: bare when the key is an
+        /// identifier, a quoted string otherwise. `order total` and `2x` are legal
+        /// JSON keys and illegal bare TypeScript names, so writing them bare would
+        /// not compile; quoted, they name the same property.
+        val private propertyName: key: string -> string
+        
         val private emitObject:
           name: string ->
             fields: FieldInfo list -> builder: System.Text.StringBuilder -> unit

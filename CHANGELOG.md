@@ -13,6 +13,22 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.14]
+
+### Fixed
+
+- **TypeScript quotes a key that is not an identifier.** A field named
+  `order total`, `2x` or `say "hi"` is a legal JSON key and was written bare,
+  as `readonly order total: string;`, which does not compile. Such a key is
+  now a quoted string (`readonly "order total": string;`), escaped where the
+  key holds a quote, a backslash or a control character; an identifier,
+  `$` and `_` included, stays bare. A union's tag follows the same rule.
+  Found by a consumer generating a type per database query, where column
+  names arrive as the database spells them.
+
+No breaking changes: every key that compiled before is written exactly as
+before.
+
 ## [0.1.0-preview.13]
 
 ### Added
