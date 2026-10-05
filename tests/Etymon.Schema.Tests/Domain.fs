@@ -165,3 +165,80 @@ module Tree =
                     return { Value = value; Children = children }
                 }
             )
+
+// ---- an internally tagged union ---------------------------------------------
+
+type ContractorBill = { BillNumber: string }
+
+type Imported = { System: string; ExternalId: string }
+
+type Source =
+    | Manual
+    | ContractorBill of ContractorBill
+    | Reversal of System.Guid
+    | Imported of Imported
+
+module Source =
+    let billSchema =
+        Schema.object "ContractorBill" {
+            let! number = Schema.required "billNumber" Schema.string (fun b -> b.BillNumber)
+            return { BillNumber = number }
+        }
+
+    let reversalSchema =
+        Schema.object "Reversal" {
+            let! reverses = Schema.required "reverses" Schema.guid id
+            return reverses
+        }
+
+    let importedSchema =
+        Schema.object "Imported" {
+            let! system = Schema.required "system" Schema.string (fun i -> i.System)
+            and! externalId = Schema.required "externalId" Schema.string (fun i -> i.ExternalId)
+
+            return
+                {
+                    System = system
+                    ExternalId = externalId
+                }
+        }
+
+    /// Written as { "type": "contractor_bill", "billNumber": "KT-32" }: the
+    /// tag first and the payload's own fields beside the tag.
+    let schema =
+        Schema.unionWith
+            (UnionShape.InternalTag "type")
+            "Source"
+            [
+                Schema.caseUnit
+                    "manual"
+                    Manual
+                    (function
+                    | Manual -> true
+                    | _ -> false
+                    )
+                Schema.case
+                    "contractor_bill"
+                    billSchema
+                    ContractorBill
+                    (function
+                    | ContractorBill b -> ValueSome b
+                    | _ -> ValueNone
+                    )
+                Schema.case
+                    "reversal"
+                    reversalSchema
+                    Reversal
+                    (function
+                    | Reversal id -> ValueSome id
+                    | _ -> ValueNone
+                    )
+                Schema.case
+                    "imported"
+                    importedSchema
+                    Imported
+                    (function
+                    | Imported i -> ValueSome i
+                    | _ -> ValueNone
+                    )
+            ]

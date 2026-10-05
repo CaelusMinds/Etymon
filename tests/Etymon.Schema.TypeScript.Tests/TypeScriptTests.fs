@@ -249,6 +249,20 @@ let tests =
                         Expect.stringContains block "/** What this member may do */" "the prose survives"
                     }
 
+                    test "an internally tagged case is an intersection of the tag and the payload" {
+                        let text = TypeScript.emitOne Source.schema
+
+                        Expect.stringContains
+                            text
+                            "  | ({ readonly type: \"contractor_bill\" } & ContractorBill)"
+                            "the payload's own fields beside the tag"
+
+                        Expect.stringContains
+                            text
+                            "  | { readonly type: \"manual\" }"
+                            "and a unit case as the tag alone"
+                    }
+
                     test "a case with no payload is the tag alone" {
                         let block = blockFor "Shape" (TypeScript.emitOne Shape.schema)
                         Expect.stringContains block "{ readonly kind: \"point\" }" "no value field"

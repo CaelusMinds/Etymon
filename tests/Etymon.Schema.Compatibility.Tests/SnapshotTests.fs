@@ -29,7 +29,7 @@ let private everyShape: Shape =
                 field "lines" (FieldType.Sequence(FieldType.Nested "Line")) true []
                 field "tags" (FieldType.Mapping(FieldType.Scalar "string")) false []
                 field "note" (FieldType.Nullable(FieldType.Scalar "string")) false []
-                field "state" (FieldType.Choice("State", [ "draft"; "sent" ])) true []
+                field "state" (FieldType.Choice("State", [ "draft"; "sent" ], Some "adjacent:kind:value")) true []
                 field "extra" FieldType.Unknown false []
                 field "total" (FieldType.Scalar "int32") true [ Constraint.Length(Some 1, Some 40) ]
             ]
@@ -105,6 +105,24 @@ let tests =
                             "read as not recorded, not refused"
                     | None -> failtest "the shape should be there"
                 | Error errors -> failtestf "an old snapshot should still read: %s" (ValidationErrors.format errors)
+            }
+
+            test "a version-3 file reads a choice's wire shape as not recorded" {
+                let old =
+                    """{"formatVersion":3,"shapes":[{"name":"A","version":1,"fields":[
+                        {"name":"state","type":{"kind":"choice","value":{"name":"State","cases":["draft"]}},"required":true,"constraints":[],"elementConstraints":[],"default":{}}]}]}"""
+
+                match ShapeSnapshots.fromJson old with
+                | Ok snapshot ->
+                    match ShapeSnapshot.tryLatest "A" snapshot with
+                    | Some shape ->
+                        Expect.equal
+                            (List.head shape.Fields).Type
+                            (FieldType.Choice("State", [ "draft" ], None))
+                            "not recorded, never a default shape"
+                    | None -> failtest "the shape should be there"
+                | Error errors ->
+                    failtestf "a version-3 snapshot should still read: %s" (ValidationErrors.format errors)
             }
 
             test "a version-2 file reads a default as not recorded" {

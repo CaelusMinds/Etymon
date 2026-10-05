@@ -31,8 +31,11 @@ type FieldType =
     | Nullable of inner: FieldType
     /// A nested object, by the name it is recorded under.
     | Nested of name: string
-    /// A tagged union, by name, with the case tags it admits.
-    | Choice of name: string * cases: string list
+    /// A tagged union, by name, with the case tags it admits and the wire shape
+    /// the union is written in, as text: "adjacent:kind:value" or
+    /// "internal:type". A snapshot older than format 4 never recorded the shape,
+    /// so None reads as not recorded and is never compared.
+    | Choice of name: string * cases: string list * encoding: string option
     /// Arbitrary JSON, whose shape this cannot reason about.
     | Unknown
 
@@ -134,6 +137,19 @@ module Shape =
         | PrimKind.Bool -> "boolean"
         | PrimKind.Raw -> "json"
 
+    /// The tag key of a union, whatever the union's shape.
+    let private tagOf (shape: UnionShape) =
+        match shape with
+        | UnionShape.AdjacentTag(tag, _)
+        | UnionShape.InternalTag tag -> tag
+
+    /// A union's wire shape as the text the snapshot records, so a change of
+    /// shape is a change of what was written.
+    let private encodingOf (shape: UnionShape) =
+        match shape with
+        | UnionShape.AdjacentTag(tag, payloadKey) -> $"adjacent:%s{tag}:%s{payloadKey}"
+        | UnionShape.InternalTag tag -> $"internal:%s{tag}"
+
     /// <summary>What a described value looks like once stored.</summary>
     /// <remarks>
     /// Named types are recorded by name rather than expanded, so that a shape
@@ -148,7 +164,7 @@ module Shape =
         | SList inner -> FieldType.Sequence(typeOf inner)
         | SMap inner -> FieldType.Mapping(typeOf inner)
         | SObject(name, _) -> FieldType.Nested name
-        | SUnion(name, _, cases) -> FieldType.Choice(name, cases |> List.map fst)
+        | SUnion(name, shape, cases) -> FieldType.Choice(name, cases |> List.map fst, Some(encodingOf shape))
         | SRef name -> FieldType.Nested name
         | SAnnotated _ -> FieldType.Unknown
 
@@ -187,10 +203,10 @@ module Shape =
     let private fieldsOf (info: SchemaInfo) : ShapeField list =
         match SchemaInfo.strip info with
         | SObject(_, fields) -> fields |> List.map fieldOf
-        | SUnion(_, tag, _) ->
+        | SUnion(_, shape, _) ->
             [
                 {
-                    Name = tag
+                    Name = tagOf shape
                     Type = typeOf info
                     Required = true
                     Constraints = []
@@ -352,13 +368,16 @@ module Shape =
 
                     cases
                     |> List.iter (fun (tag, payload) ->
-                        match SchemaInfo.strip payload with
-                        | SPrim PrimKind.Raw -> ()
-                        | SObject _
-                        | SUnion _ -> walk payload
-                        | other ->
-                            if record $"%s{name}.%s{tag}" payload then
-                                walk other
+                        match payload with
+                        | None -> ()
+                        | Some payload ->
+                            match SchemaInfo.strip payload with
+                            | SPrim PrimKind.Raw -> ()
+                            | SObject _
+                            | SUnion _ -> walk payload
+                            | other ->
+                                if record $"%s{name}.%s{tag}" payload then
+                                    walk other
                     )
             | SNullable inner
             | SList inner

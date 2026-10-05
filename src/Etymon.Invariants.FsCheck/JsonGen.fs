@@ -407,17 +407,33 @@ module JsonGen =
                 return object :> JsonNode
             }
 
-        | SUnion(_, tag, cases) ->
+        | SUnion(_, shape, cases) ->
             gen {
                 let! caseTag, casePayload = Gen.elements cases
                 let object = JsonObject()
+
+                let tag =
+                    match shape with
+                    | UnionShape.AdjacentTag(tag, _)
+                    | UnionShape.InternalTag tag -> tag
+
                 object.Add(tag, node caseTag)
 
-                match SchemaInfo.strip casePayload with
-                | SPrim PrimKind.Raw -> ()
-                | _ ->
-                    let! value = forInfo casePayload
-                    object.Add("value", (if isNull value then null else value.DeepClone()))
+                match shape, casePayload with
+                | _, None -> ()
+                | UnionShape.AdjacentTag(_, payloadKey), Some payload ->
+                    let! value = forInfo payload
+                    object.Add(payloadKey, (if isNull value then null else value.DeepClone()))
+                | UnionShape.InternalTag _, Some payload ->
+                    // The payload is an object with no field named like the
+                    // tag, by construction; its properties sit beside the tag.
+                    let! value = forInfo payload
+
+                    match value with
+                    | :? JsonObject as fields ->
+                        for KeyValue(key, field) in fields do
+                            object.Add(key, (if isNull field then null else field.DeepClone()))
+                    | _ -> ()
 
                 return object :> JsonNode
             }

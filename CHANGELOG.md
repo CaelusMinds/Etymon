@@ -13,6 +13,56 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.17]
+
+One union wire shape, so a product whose stored events carry an internally
+tagged union wrote the codec by hand over `Schema.raw`, and the snapshot, the
+OpenAPI document and the TypeScript output saw no cases. Action 3 of the
+[review of 2026-10-05](docs/review-2026-10-05.md), designed in
+[a union says how the union is written](docs/design/union-wire-shape-2026-10-05.md).
+
+### Added
+
+- **`UnionShape`** and **`Schema.unionWith shape name cases`**.
+  `UnionShape.AdjacentTag (tag, payloadKey)` is the shape every union has had,
+  with the payload key now a parameter; `UnionShape.InternalTag tag` writes
+  the tag first and the payload's own fields beside the tag,
+  `{ "type": "contractor_bill", "billNumber": "KT-32" }`. Every case of an
+  internally tagged union carries an object payload or none, with no field
+  named like the tag, and anything else is refused when the union is built;
+  a payload held by reference (`Schema.recursive`) cannot be seen then and is
+  checked on the first write, which fails naming the union and the case. `Schema.union name tag cases` stays and
+  means `Schema.unionWith (UnionShape.AdjacentTag (tag, "value")) name cases`,
+  so every existing union keeps the bytes the union has.
+- **Every derivation reads the shape.** The OpenAPI document renders an
+  internally tagged case as `allOf` of the payload and the tag constant, and in
+  the OpenAPI 3.1 dialect adds `discriminator { propertyName; mapping }` when
+  every case has a component to map to; the TypeScript output renders the case
+  as `({ readonly type: "x" } & Payload)`; the generator in
+  `Etymon.Invariants.FsCheck` merges a generated payload beside the tag; the
+  compatibility snapshot records the shape on `FieldType.Choice` and reports a
+  changed shape as breaking both directions. The snapshot format is version 4;
+  version-3 files still read, with the shape not recorded and so never
+  compared.
+
+### Fixed
+
+- **A unit case and a raw-payload case were the same description.**
+  `SUnion` now carries `SchemaInfo option` per case, `None` for a case with
+  no payload.
+
+### Breaking
+
+- `SUnion` is `SUnion of name * shape: UnionShape * cases: (string * SchemaInfo option) list`.
+  A match on `SUnion(name, tag, cases)` takes the tag from the shape and
+  matches each payload as an option; a wildcard match compiles unchanged.
+- `CaseSchema` is `{ Tag; Payload; IsCase; WritePayload; ReadPayload }`: a
+  case writes and reads the payload alone, and the union decides where the
+  payload sits. Code constructing the record by hand uses `Schema.case` and
+  `Schema.caseUnit` instead.
+- `FieldType.Choice` gains `encoding: string option`. Code constructing
+  `FieldType.Choice` by hand adds the third element, `None` for not recorded.
+
 ## [0.1.0-preview.16]
 
 A shape snapshot stopped at a nested name, so a change inside a nested object

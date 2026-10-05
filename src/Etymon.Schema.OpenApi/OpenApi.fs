@@ -257,34 +257,81 @@ module OpenApi =
         // keys it does not know about, so claiming otherwise would describe a
         // stricter contract than the code actually enforces.
 
-        | SUnion(_, tag, cases) ->
+        | SUnion(_, shape, cases) ->
             let choices = JsonArray()
 
-            for caseTag, casePayload in cases do
+            let tag =
+                match shape with
+                | UnionShape.AdjacentTag(tag, _)
+                | UnionShape.InternalTag tag -> tag
+
+            // An object requiring the tag constant, and nothing else.
+            let tagOnly (caseTag: string) =
                 let choice = JsonObject()
                 choice.Add("type", Node.Of "object")
-
                 let properties = JsonObject()
                 let tagSchema = JsonObject()
                 tagSchema.Add("const", Node.Of caseTag)
                 properties.Add(tag, tagSchema)
-
                 let requiredNames = JsonArray()
                 requiredNames.Add(Node.Of tag)
-
-                // A case carrying no payload is written as the tag alone, so its
-                // schema must not require a value.
-                match SchemaInfo.strip casePayload with
-                | SPrim PrimKind.Raw -> ()
-                | _ ->
-                    properties.Add("value", render dialect false casePayload)
-                    requiredNames.Add(Node.Of "value")
-
                 choice.Add("properties", properties)
                 choice.Add("required", requiredNames)
-                choices.Add(choice)
+                choice
+
+            for caseTag, casePayload in cases do
+                match shape, casePayload with
+                // A case carrying no payload is written as the tag alone, so
+                // its schema must not require anything else.
+                | _, None -> choices.Add(tagOnly caseTag)
+                | UnionShape.AdjacentTag(_, payloadKey), Some payload ->
+                    let choice = tagOnly caseTag
+                    (choice["properties"] :?> JsonObject).Add(payloadKey, render dialect false payload)
+                    (choice["required"] :?> JsonArray).Add(Node.Of payloadKey)
+                    choices.Add(choice)
+                | UnionShape.InternalTag _, Some payload ->
+                    // The payload's fields beside the tag: the payload's own
+                    // schema, and the tag constant, both required.
+                    let choice = JsonObject()
+                    let parts = JsonArray()
+                    parts.Add(render dialect false payload)
+                    parts.Add(tagOnly caseTag)
+                    choice.Add("allOf", parts)
+                    choices.Add(choice)
 
             add "oneOf" (choices :> JsonNode)
+
+            // OpenAPI's discriminator names the tag and maps each value to a
+            // component, so a client generator picks the case without reading
+            // every branch. Only where every case has a component to map to:
+            // a mapping with a hole sends the generator to a schema named after
+            // the tag value, which does not exist.
+            match dialect, shape with
+            | SchemaDialect.OpenApi31, UnionShape.InternalTag _ ->
+                let references =
+                    cases
+                    |> List.map (fun (caseTag, casePayload) ->
+                        match casePayload with
+                        | Some payload ->
+                            let rendered = render dialect false payload
+
+                            match rendered["$ref"] with
+                            | null -> None
+                            | reference -> Some(caseTag, reference.GetValue<string>())
+                        | None -> None
+                    )
+
+                if references |> List.forall Option.isSome then
+                    let discriminator = JsonObject()
+                    discriminator.Add("propertyName", Node.Of tag)
+                    let mapping = JsonObject()
+
+                    for caseTag, reference in references |> List.choose id do
+                        mapping.Add(caseTag, Node.Of reference)
+
+                    discriminator.Add("mapping", mapping)
+                    add "discriminator" discriminator
+            | _ -> ()
 
         | SRef name -> add "$ref" (Node.Of(refPrefix dialect + name))
         | SAnnotated _ -> failwith "unreachable: annotations are stripped before this point"

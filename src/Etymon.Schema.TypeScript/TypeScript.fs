@@ -154,20 +154,38 @@ module TypeScript =
 
         builder.AppendLine("}") |> ignore
 
-    let private emitUnion (name: string) (tag: string) (cases: (string * SchemaInfo) list) (builder: StringBuilder) =
+    let private emitUnion
+        (name: string)
+        (shape: UnionShape)
+        (cases: (string * SchemaInfo option) list)
+        (builder: StringBuilder)
+        =
         builder.Append("export type ").Append(name).AppendLine(" =") |> ignore
+
+        let tag =
+            match shape with
+            | UnionShape.AdjacentTag(tag, _)
+            | UnionShape.InternalTag tag -> tag
 
         let rendered =
             cases
             |> List.map (fun (caseTag, payload) ->
-                let body =
-                    match SchemaInfo.strip payload with
-                    // A case with no payload is the tag alone, matching how
-                    // Etymon writes it on the wire.
-                    | SPrim PrimKind.Raw -> ""
-                    | _ -> "; readonly value: " + typeOf payload
+                let tagged = "{ readonly " + propertyName tag + ": \"" + caseTag + "\""
 
-                "  | { readonly " + propertyName tag + ": \"" + caseTag + "\"" + body + " }"
+                match shape, payload with
+                // A case with no payload is the tag alone, matching how Etymon
+                // writes it on the wire.
+                | _, None -> "  | " + tagged + " }"
+                | UnionShape.AdjacentTag(_, payloadKey), Some payload ->
+                    "  | "
+                    + tagged
+                    + "; readonly "
+                    + propertyName payloadKey
+                    + ": "
+                    + typeOf payload
+                    + " }"
+                // The payload's own fields beside the tag: an intersection.
+                | UnionShape.InternalTag _, Some payload -> "  | (" + tagged + " } & " + typeOf payload + ")"
             )
 
         // The semicolon closes the last case rather than sitting on a line of its
@@ -215,7 +233,7 @@ module TypeScript =
 
             match SchemaInfo.strip info with
             | SObject(_, fields) -> emitObject name fields builder
-            | SUnion(_, tag, cases) -> emitUnion name tag cases builder
+            | SUnion(_, shape, cases) -> emitUnion name shape cases builder
             | other ->
                 builder.Append("export type ").Append(name).Append(" = ").Append(typeOf other).AppendLine(";")
                 |> ignore

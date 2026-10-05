@@ -128,10 +128,17 @@ a type that contains itself.
 TypeScript all treat them differently. `Schema.optional` means the key may be
 absent; `Schema.nullable` means the value may be `null`.
 
-**Unions are adjacently tagged** — `{ "kind": "circle", "value": 1 }` — rather
-than merging the payload into the outer object. That works whatever shape the
-payload has, including a bare number, and the tag can never collide with a
-payload field.
+**Unions say how the union is written.** `Schema.union` is adjacently tagged —
+`{ "kind": "circle", "value": 1 }` — which works whatever shape the payload
+has, including a bare number, and the tag can never collide with a payload
+field. `Schema.unionWith (UnionShape.InternalTag "type")` writes the tag first
+and the payload's own fields beside the tag —
+`{ "type": "contractor_bill", "billNumber": "KT-32" }` — for bytes already
+written that way; every case then carries an object payload or none, with no
+field named like the tag, and the schema refuses anything else when the schema
+is built (a payload held by reference is checked on the first write). The shape is part of
+the description, so the OpenAPI document, the TypeScript output, the generator
+and the compatibility snapshot all read the shape.
 
 **Recursion needs `Schema.recursive`.** Without it, building a self-referential
 schema overflows the stack while it is being constructed, rather than failing in

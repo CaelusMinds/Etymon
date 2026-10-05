@@ -29,7 +29,9 @@ module ShapeSnapshots =
     // its fields simply have none recorded.
     // 3 added default on every field, for the same reason and with the same
     // reading of an older file: absent is not recorded, never recorded none.
-    let FormatVersion = 3
+    // 4 added encoding on every choice, the union's wire shape, read the same
+    // way.
+    let FormatVersion = 4
 
     let private fieldTypeSchema: Schema<FieldType> =
         Schema.recursive
@@ -87,13 +89,18 @@ module ShapeSnapshots =
                         Schema.case
                             "choice"
                             (Schema.object "Choice" {
-                                let! name = Schema.required "name" Schema.string fst
-                                and! cases = Schema.required "cases" (Schema.list Schema.string) snd
-                                return (name, cases)
+                                let! name = Schema.required "name" Schema.string (fun (n, _, _) -> n)
+
+                                and! cases =
+                                    Schema.required "cases" (Schema.list Schema.string) (fun (_, cs, _) -> cs)
+                                // Optional, not defaulted: a file older than
+                                // format 4 never recorded the wire shape.
+                                and! encoding = Schema.optional "encoding" Schema.string (fun (_, _, e) -> e)
+                                return (name, cases, encoding)
                             })
                             FieldType.Choice
                             (function
-                            | FieldType.Choice(n, cs) -> ValueSome(n, cs)
+                            | FieldType.Choice(n, cs, e) -> ValueSome(n, cs, e)
                             | _ -> ValueNone
                             )
 

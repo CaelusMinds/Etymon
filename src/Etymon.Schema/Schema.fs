@@ -867,10 +867,8 @@ module Schema =
     /// One case of a union, with a payload.
     /// </summary>
     /// <remarks>
-    /// Cases are written adjacently tagged — <c>{ "kind": "circle", "value": … }</c>
-    /// — rather than by merging the payload's fields into the outer object. That
-    /// works whatever shape the payload has, including a bare number or a list,
-    /// and it means the tag can never collide with a payload field.
+    /// Where the payload sits is the union's decision, not the case's: see
+    /// <c>Schema.union</c> and <c>Schema.unionWith</c>.
     /// </remarks>
     /// <example><code lang="fsharp">
     /// Schema.case "circle" Schema.float Circle (function Circle r -> ValueSome r | _ -> ValueNone)
@@ -879,23 +877,17 @@ module Schema =
         {
             Tag = tag
             Payload = Some payload.Info
-            TryWrite =
-                fun writer tagField value ->
+            IsCase =
+                fun value ->
                     match destruct value with
-                    | ValueSome inner ->
-                        writer.WriteString(tagField, tag)
-                        writer.WritePropertyName "value"
-                        payload.Write writer inner
-                        true
+                    | ValueSome _ -> true
                     | ValueNone -> false
-            Read =
-                fun mode _ element ->
-                    match element.TryGetProperty "value" with
-                    | true, property ->
-                        payload.Read mode Path.root property
-                        |> Validation.mapErrors (ValidationErrors.underField "value")
-                        |> Validation.map construct
-                    | false, _ -> Codec.missing (Path.field "value" Path.root)
+            WritePayload =
+                fun writer value ->
+                    match destruct value with
+                    | ValueSome inner -> payload.Write writer inner
+                    | ValueNone -> ()
+            ReadPayload = fun mode path element -> payload.Read mode path element |> Validation.map construct
         }
 
     /// <summary>One case of a union with no payload, written as the tag alone.</summary>
@@ -906,45 +898,117 @@ module Schema =
         {
             Tag = tag
             Payload = None
-            TryWrite =
-                fun writer tagField candidate ->
-                    if isCase candidate then
-                        writer.WriteString(tagField, tag)
-                        true
-                    else
-                        false
-            Read = fun _ _ _ -> Ok value
+            IsCase = isCase
+            WritePayload = fun _ _ -> ()
+            ReadPayload = fun _ _ _ -> Ok value
         }
 
     /// <summary>
-    /// A discriminated union, distinguished by the value of a tag field.
+    /// A discriminated union, written in the given shape.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The tag is written first under either shape. An internal tag merges the
+    /// payload's fields with the tag, so every case of an internally tagged
+    /// union carries an object payload or none, and anything else is refused
+    /// here, when the schema is built, rather than on the first write.
+    /// </para>
+    /// <para>
     /// Encoding raises if no case matches the value. That is deliberate: it means
     /// the destructors do not cover the type, which is a bug in the schema rather
     /// than an expected outcome, and no caller could sensibly handle it.
+    /// </para>
     /// </remarks>
+    /// <exception cref="System.ArgumentException">
+    /// A case of an internally tagged union carries a payload that is not an
+    /// object or declares a field named like the tag key, or an adjacent shape
+    /// names one key for the tag and the payload. A payload held by reference
+    /// (<c>Schema.recursive</c>) cannot be seen when the union is built and is
+    /// checked on the first write, which fails naming the union and the case.
+    /// </exception>
     /// <example><code lang="fsharp">
-    /// let shapeSchema =
-    ///     Schema.union "Shape" "kind" [
-    ///         Schema.case "circle" Schema.float Circle (function Circle r -> ValueSome r | _ -> ValueNone)
-    ///         Schema.case "square" Schema.float Square (function Square s -> ValueSome s | _ -> ValueNone)
+    /// let sourceSchema =
+    ///     Schema.unionWith (UnionShape.InternalTag "type") "Source" [
+    ///         Schema.caseUnit "manual" Manual (function Manual -> true | _ -> false)
+    ///         Schema.case "contractor_bill" billSchema ContractorBill (function ContractorBill b -> ValueSome b | _ -> ValueNone)
     ///     ]
-    /// Schema.toJson shapeSchema (Circle 1.0) // """{"kind":"circle","value":1}"""
+    /// Schema.toJson sourceSchema (ContractorBill { Number = "KT-32" })
+    /// // """{"type":"contractor_bill","billNumber":"KT-32"}"""
     /// </code></example>
-    let union (name: string) (tagField: string) (cases: CaseSchema<'T> list) : Schema<'T> =
+    let unionWith (shape: UnionShape) (name: string) (cases: CaseSchema<'T> list) : Schema<'T> =
         let tags = cases |> List.map (fun c -> c.Tag)
+
+        let tagField =
+            match shape with
+            | UnionShape.AdjacentTag(tag, _)
+            | UnionShape.InternalTag tag -> tag
+
+        match shape with
+        | UnionShape.InternalTag _ ->
+            for c in cases do
+                match c.Payload |> Option.map SchemaInfo.strip with
+                | Some(SObject(_, fields)) when fields |> List.exists (fun f -> f.Name = tagField) ->
+                    invalidArg
+                        "cases"
+                        $"the case '%s{c.Tag}' of the union '%s{name}' declares a field named '%s{tagField}', which is the tag key, and an internal tag writes the tag beside the payload's fields. Rename the field, or use an adjacent tag."
+                | None
+                | Some(SObject _)
+                // A reference is the one payload the union cannot see when
+                // built; the write checks the referenced object, by name.
+                | Some(SRef _) -> ()
+                | Some _ ->
+                    invalidArg
+                        "cases"
+                        $"the case '%s{c.Tag}' of the union '%s{name}' carries a payload that is not an object, and an internal tag merges the payload's fields with the tag. Use an adjacent tag, or make the payload an object."
+        | UnionShape.AdjacentTag(tag, payloadKey) when tag = payloadKey ->
+            invalidArg
+                "shape"
+                $"the union '%s{name}' names '%s{tag}' as both the tag key and the payload key. Give the payload another key."
+        | UnionShape.AdjacentTag _ -> ()
 
         {
             Write =
                 fun writer value ->
-                    writer.WriteStartObject()
-
-                    if not (cases |> List.exists (fun c -> c.TryWrite writer tagField value)) then
+                    match cases |> List.tryFind (fun c -> c.IsCase value) with
+                    | None ->
                         failwith
                             $"the union schema %s{name} has no case matching this value; its destructors do not cover the type"
+                    | Some matched ->
+                        writer.WriteStartObject()
+                        writer.WriteString(tagField, matched.Tag)
 
-                    writer.WriteEndObject()
+                        match shape, matched.Payload with
+                        | _, None -> ()
+                        | UnionShape.AdjacentTag(_, payloadKey), Some _ ->
+                            writer.WritePropertyName payloadKey
+                            matched.WritePayload writer value
+                        | UnionShape.InternalTag _, Some _ ->
+                            // The payload writes a whole object; its properties
+                            // are copied beside the tag.
+                            let buffer = System.Buffers.ArrayBufferWriter<byte>()
+
+                            do
+                                use inner = new Utf8JsonWriter(buffer)
+                                matched.WritePayload inner value
+                                inner.Flush()
+
+                            use document = JsonDocument.Parse(buffer.WrittenMemory)
+
+                            // A reference payload was trusted when the union was
+                            // built; the bytes say what the reference was.
+                            if document.RootElement.ValueKind <> JsonValueKind.Object then
+                                failwith
+                                    $"the case '%s{matched.Tag}' of the union '%s{name}' wrote a payload that is not an object, and an internal tag merges the payload's fields with the tag. Use an adjacent tag, or make the payload an object."
+
+                            for property in document.RootElement.EnumerateObject() do
+                                if property.Name = tagField then
+                                    failwith
+                                        $"the case '%s{matched.Tag}' of the union '%s{name}' wrote a field named '%s{tagField}', which is the tag key. Rename the field, or use an adjacent tag."
+
+                                let mutable copy = property
+                                copy.WriteTo writer
+
+                        writer.WriteEndObject()
             Read =
                 fun mode path element ->
                     match element.ValueKind with
@@ -958,20 +1022,47 @@ module Schema =
                             let tag = tagElement.GetString()
 
                             match cases |> List.tryFind (fun c -> c.Tag = tag) with
-                            | Some matched -> matched.Read mode path element
+                            | Some matched ->
+                                match shape, matched.Payload with
+                                | _, None -> matched.ReadPayload mode path element
+                                | UnionShape.AdjacentTag(_, payloadKey), Some _ ->
+                                    match element.TryGetProperty payloadKey with
+                                    | true, property ->
+                                        matched.ReadPayload mode Path.root property
+                                        |> Validation.mapErrors (ValidationErrors.underField payloadKey)
+                                    | false, _ -> Codec.missing (Path.field payloadKey Path.root)
+                                | UnionShape.InternalTag _, Some _ ->
+                                    // The object reader ignores the tag key, which
+                                    // the payload does not declare.
+                                    matched.ReadPayload mode path element
                             | None ->
                                 Codec.rejected "unknown-case" ("must be one of: " + String.Join(", ", tags)) tagPath
                         | true, tagElement -> Codec.mismatch "string" tagPath tagElement
                         | false, _ -> Codec.missing tagPath
                     | _ -> Codec.mismatch "object" path element
-            Info =
-                SUnion(
-                    name,
-                    tagField,
-                    cases
-                    |> List.map (fun c -> c.Tag, c.Payload |> Option.defaultValue (SPrim PrimKind.Raw))
-                )
+            Info = SUnion(name, shape, cases |> List.map (fun c -> c.Tag, c.Payload))
         }
+
+    /// <summary>
+    /// A discriminated union, adjacently tagged: the tag under the given key and
+    /// the payload under <c>value</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>Schema.unionWith (UnionShape.AdjacentTag (tag, "value"))</c>, the shape
+    /// every union has had. Works whatever shape the payload has, including a
+    /// bare number or a list, and the tag can never collide with a payload
+    /// field. For another shape, see <c>Schema.unionWith</c>.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// let shapeSchema =
+    ///     Schema.union "Shape" "kind" [
+    ///         Schema.case "circle" Schema.float Circle (function Circle r -> ValueSome r | _ -> ValueNone)
+    ///         Schema.case "square" Schema.float Square (function Square s -> ValueSome s | _ -> ValueNone)
+    ///     ]
+    /// Schema.toJson shapeSchema (Circle 1.0) // """{"kind":"circle","value":1}"""
+    /// </code></example>
+    let union (name: string) (tagField: string) (cases: CaseSchema<'T> list) : Schema<'T> =
+        unionWith (UnionShape.AdjacentTag(tagField, "value")) name cases
 
     // ---- recursion -----------------------------------------------------------
 

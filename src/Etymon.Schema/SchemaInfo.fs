@@ -119,7 +119,7 @@ type SchemaInfo =
     /// An object with known fields.
     | SObject of name: string * fields: FieldInfo list
     /// A discriminated union, distinguished by the value of a tag field.
-    | SUnion of name: string * tag: string * cases: (string * SchemaInfo) list
+    | SUnion of name: string * shape: UnionShape * cases: (string * SchemaInfo option) list
     /// A reference to a named schema, which is how recursion is represented.
     | SRef of name: string
     /// A schema with metadata attached.
@@ -144,6 +144,23 @@ and [<NoComparison>] FieldInfo =
         /// Whether the field is a secret.
         Sensitive: bool
     }
+
+/// <summary>How a union is written on the wire.</summary>
+/// <remarks>
+/// The shape is part of the description because every derivation needs the
+/// shape: the codec to write and read the bytes, the OpenAPI document and the
+/// TypeScript output to say where the payload sits, the snapshot to see a
+/// change of shape as a change of what was written.
+/// </remarks>
+and [<RequireQualifiedAccess>] UnionShape =
+    /// The tag under one key and the payload under another:
+    /// <c>{ "kind": "circle", "value": 1 }</c>. Works for any payload, and the
+    /// tag can never collide with a payload field.
+    | AdjacentTag of tag: string * payloadKey: string
+    /// The tag written first and the payload's own fields beside the tag:
+    /// <c>{ "type": "contractor_bill", "billNumber": "KT-32" }</c>. Every case
+    /// carries an object payload or none.
+    | InternalTag of tag: string
 
 /// Inspecting a <see cref="T:Etymon.SchemaInfo"/>.
 [<RequireQualifiedAccess>]
@@ -231,7 +248,9 @@ module SchemaInfo =
                     found <- Map.add n current found
 
                     for _, case in cases do
-                        walk case
+                        match case with
+                        | Some payload -> walk payload
+                        | None -> ()
 
         walk info
         found
