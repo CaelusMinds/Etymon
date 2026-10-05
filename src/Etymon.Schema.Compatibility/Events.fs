@@ -65,14 +65,46 @@ module Events =
     let undeclaredRenames (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) : Unresolved list =
         Detect.renameAmbiguities "whether stored events can be read" renames before after
 
+    /// <summary>
+    /// Every current shape the committed snapshot does not record as the shape
+    /// is now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The matrix is right that an optional field breaks neither direction, and
+    /// that is exactly how a snapshot comes to lag: nothing demanded the file be
+    /// regenerated, and the next change was measured against a file that did
+    /// not describe the bytes. This says so, names the fields, and says to
+    /// regenerate with <c>ShapeSnapshot.extend</c>.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Events.unrecorded committed current
+    /// // "'InvoiceRaised' v1 is not recorded as the shape is now: the committed snapshot
+    /// //  lacks 'note'. Regenerate the snapshot from ShapeSnapshot.extend committed
+    /// //  current and commit the file, so the next change is measured against
+    /// //  what was already written."
+    /// </code></example>
+    let unrecorded (committed: ShapeSnapshot) (current: ShapeSnapshot) : Unresolved list =
+        Detect.unrecorded "what was already written" committed current
+
     /// <summary>Everything unresolved about a change, as one report.</summary>
+    /// <remarks>
+    /// Stranded versions are computed over both snapshots together, through
+    /// <c>ShapeSnapshot.extend</c>, toward the version the code declares: the
+    /// committed file is where the stored versions live, the current snapshot
+    /// is what the code reads today, and a version in the file that the code
+    /// no longer declares still needs an upcaster.
+    /// </remarks>
     /// <example><code lang="fsharp">
     /// match Events.check upcasters renames previous current with
     /// | [] -> ()
     /// | problems -> failwith (Events.report problems)
     /// </code></example>
     let check (upcasters: Upcaster list) (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) =
-        undeclaredRenames renames before after @ unreachable upcasters after
+        undeclaredRenames renames before after
+        @ Detect.strandedVersionsToward "stored shapes" upcasters after (ShapeSnapshot.extend before after)
+        @ unrecorded before after
 
     /// <summary>The unresolved items as prose, one per paragraph.</summary>
     let report (problems: Unresolved list) = Detect.report problems

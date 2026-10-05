@@ -203,7 +203,10 @@ let tests =
                         Expect.isEmpty (Events.undeclaredRenames renames before after) "nothing left ambiguous"
                     }
 
-                    test "a declared rename is not reported as a removal and an addition" {
+                    test "a declared rename of a required field is reported as a rename, breaking both ways" {
+                        // Not as a removal and an addition, and not as nothing:
+                        // what was already written carries the old name, and
+                        // already-deployed code reads the old name.
                         let renames =
                             [
                                 {
@@ -214,9 +217,102 @@ let tests =
                             ]
 
                         let after = shape 2 [ field "id" text true []; field "amount" number true [] ]
+
+                        match Compatibility.betweenShapes renames v1 after with
+                        | [ change ] ->
+                            Expect.stringContains
+                                change.Description
+                                "'total' was renamed to 'amount'"
+                                "named as a rename"
+
+                            Expect.equal
+                                (change.Breaks |> List.map fst |> List.sort)
+                                [ Direction.Backward; Direction.Forward ]
+                                "old events carry 'total'; old code reads 'total'"
+                        | other -> failtestf "expected the rename alone, got %A" other
+                    }
+
+                    test "a spent declaration hides nothing" {
+                        // The file already records the new name, and the
+                        // declaration is still in the harness. A later change
+                        // to the renamed field must still be seen.
+                        let renames =
+                            [
+                                {
+                                    Shape = "InvoiceRaised"
+                                    From = "total"
+                                    To = "amount"
+                                }
+                            ]
+
+                        let recorded = shape 2 [ field "id" text true []; field "amount" number true [] ]
+                        let retyped = shape 2 [ field "id" text true []; field "amount" text true [] ]
+
+                        match Compatibility.betweenShapes renames recorded retyped with
+                        | [ change ] -> Expect.stringContains change.Description "the type of 'amount' changed" "seen"
+                        | other -> failtestf "expected the type change, got %A" other
+                    }
+
+                    test "a declared rename that also stops being required names the old field for deployed code" {
+                        let renames =
+                            [
+                                {
+                                    Shape = "InvoiceRaised"
+                                    From = "total"
+                                    To = "amount"
+                                }
+                            ]
+
+                        let after = shape 2 [ field "id" text true []; field "amount" number false [] ]
                         let changes = Compatibility.betweenShapes renames v1 after
 
-                        Expect.isEmpty changes "the same field under a new name changed nothing else"
+                        Expect.isTrue (breaksForward changes) "deployed code requires the old field"
+                        Expect.isFalse (breaksBackward changes) "and an optional new field reads old events"
+
+                        let reasons = changes |> List.collect (fun c -> c.Breaks) |> List.map snd
+
+                        Expect.isTrue
+                            (reasons |> List.exists (fun r -> r.Contains "requires 'total'"))
+                            "by the old name"
+                    }
+
+                    test "a declared rename that also becomes required names the old field for old data" {
+                        let renames =
+                            [
+                                {
+                                    Shape = "InvoiceRaised"
+                                    From = "note"
+                                    To = "memo"
+                                }
+                            ]
+
+                        let before = shape 1 (v1.Fields @ [ field "note" text false [] ])
+                        let after = shape 2 (v1.Fields @ [ field "memo" text true [] ])
+                        let changes = Compatibility.betweenShapes renames before after
+
+                        Expect.isTrue (breaksBackward changes) "old events may omit the old field"
+                        Expect.isFalse (breaksForward changes) "and old code reads an optional field or nothing"
+
+                        let reasons = changes |> List.collect (fun c -> c.Breaks) |> List.map snd
+                        Expect.isTrue (reasons |> List.exists (fun r -> r.Contains "omit 'note'")) "by the old name"
+                    }
+
+                    test "a declared rename of an optional field breaks neither direction" {
+                        let renames =
+                            [
+                                {
+                                    Shape = "InvoiceRaised"
+                                    From = "note"
+                                    To = "memo"
+                                }
+                            ]
+
+                        let before = shape 1 (v1.Fields @ [ field "note" text false [] ])
+                        let after = shape 2 (v1.Fields @ [ field "memo" text false [] ])
+
+                        Expect.isEmpty
+                            (Compatibility.betweenShapes renames before after)
+                            "absent under either name reads as absent"
                     }
 
                     test "a removal on its own is not ambiguous" {
@@ -224,6 +320,42 @@ let tests =
                         let after = ShapeSnapshot.of' [ shape 2 [ field "id" text true [] ] ]
 
                         Expect.isEmpty (Events.undeclaredRenames [] before after) "a removal is a removal"
+                    }
+                ]
+
+            testList
+                "the snapshot as a whole"
+                [
+                    test "a removed shape breaks both directions" {
+                        // The shape is in the committed snapshot and gone from
+                        // the code. Visiting only the names present after the
+                        // change is how this produced no verdict at all.
+                        let before = ShapeSnapshot.of' [ v1; { v1 with Name = "InvoiceSettled" } ]
+                        let after = ShapeSnapshot.of' [ v1 ]
+
+                        match Compatibility.between [] before after with
+                        | [ change ] ->
+                            Expect.equal change.Shape "InvoiceSettled" "the one that went"
+                            Expect.equal change.Field None "about the shape, not a field"
+                            Expect.stringContains change.Description "was removed" "said plainly"
+                            Expect.isTrue (breaksBackward [ change ]) "what was already written has no reader"
+                            Expect.isTrue (breaksForward [ change ]) "and old code reads a shape nothing writes"
+                        | other -> failtestf "expected the removal alone, got %A" other
+                    }
+
+                    test "a new shape breaks nothing" {
+                        let before = ShapeSnapshot.of' [ v1 ]
+                        let after = ShapeSnapshot.of' [ v1; { v1 with Name = "InvoiceSettled" } ]
+                        Expect.isEmpty (Compatibility.between [] before after) "nothing reads it and nothing carries it"
+                    }
+
+                    test "a removed shape is in the report" {
+                        let before = ShapeSnapshot.of' [ v1; { v1 with Name = "InvoiceSettled" } ]
+
+                        let report =
+                            Compatibility.report (Compatibility.between [] before (ShapeSnapshot.of' [ v1 ]))
+
+                        Expect.stringContains report "InvoiceSettled: the shape 'InvoiceSettled' was removed." "named"
                     }
                 ]
 

@@ -285,3 +285,33 @@ module ShapeSnapshot =
         match versionsOf name snapshot with
         | [] -> None
         | versions -> tryShape name (List.max versions) snapshot
+
+    /// <summary>
+    /// The committed snapshot with every current shape added, or replacing the
+    /// committed shape of the same name and version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The regeneration primitive. A harness derives the current snapshot from
+    /// the codecs, so the current snapshot carries only the versions the code
+    /// declares today; the committed file is where the stored versions live. A
+    /// file regenerated from the current snapshot alone forgets every version
+    /// the code stopped declaring, and with the version goes the evidence that
+    /// events at the version exist.
+    /// </para>
+    /// <para>
+    /// A version present only in the committed snapshot therefore stays. A
+    /// shape present in both is taken from the current snapshot, so an in-place
+    /// change the matrix reports as safe (an optional field added, say) is
+    /// recorded as the shape is now.
+    /// </para>
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// File.WriteAllText(path, ShapeSnapshots.toJson (ShapeSnapshot.extend committed current))
+    /// </code></example>
+    let extend (committed: ShapeSnapshot) (current: ShapeSnapshot) : ShapeSnapshot =
+        let kept =
+            committed.Shapes
+            |> List.filter (fun c -> (tryShape c.Name c.Version current).IsNone)
+
+        of' (kept @ current.Shapes)

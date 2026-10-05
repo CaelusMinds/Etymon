@@ -87,6 +87,36 @@ let tests =
                         Expect.isNonEmpty breaks "this one has to be decided now"
                     }
 
+                    test "a removed response shape breaks clients, and nothing can fix it" {
+                        let before = ShapeSnapshot.of' [ invoiceV1; createV1 ]
+                        let after = snap createV1
+
+                        match Wire.responses [] before after |> Wire.unfixable with
+                        | [ verdict ] ->
+                            Expect.equal verdict.Contract "InvoiceDto" "the contract that went"
+                            Expect.stringContains verdict.Change "was removed" "named as a removal"
+                        | other -> failtestf "expected one unfixable verdict, got %A" other
+                    }
+
+                    test "a declared rename on a response breaks clients, and nothing can fix it" {
+                        // The declaration settles the ambiguity; the verdict
+                        // stays, because the client still reads the old name.
+                        let renames =
+                            [
+                                {
+                                    Shape = "InvoiceDto"
+                                    From = "taxMinorUnits"
+                                    To = "tax"
+                                }
+                            ]
+
+                        let renamed = shape "InvoiceDto" 2 [ field "id" text true; field "tax" number true ]
+
+                        match Wire.responses renames (snap invoiceV1) (snap renamed) |> Wire.unfixable with
+                        | [ verdict ] -> Expect.stringContains verdict.Change "was renamed to 'tax'" "named as a rename"
+                        | other -> failtestf "expected one unfixable verdict, got %A" other
+                    }
+
                     test "adding an optional response field breaks nobody" {
                         let widened = shape "InvoiceDto" 2 [ field "id" text true; field "note" text false ]
 
@@ -112,6 +142,18 @@ let tests =
                         | other -> failtestf "expected one verdict, got %A" other
                     }
 
+                    test "a removed request shape breaks what clients already send, and no upcaster can fix it" {
+                        let before = ShapeSnapshot.of' [ invoiceV1; createV1 ]
+                        let after = snap invoiceV1
+
+                        match Wire.requests [] before after with
+                        | [ verdict ] ->
+                            Expect.equal verdict.Contract "CreateBillRequest" "the contract that went"
+                            Expect.isFalse verdict.Fixable "nothing can be upcast into a body nothing reads"
+                            Expect.stringContains verdict.Consequence "version the endpoint" "the real options"
+                        | other -> failtestf "expected one verdict, got %A" other
+                    }
+
                     test "the request report names the other direction of travel" {
                         let report = Wire.report (Wire.requests [] (snap createV1) (snap createV2))
                         Expect.stringContains report "they send what you read" "the opposite crossing"
@@ -122,7 +164,14 @@ let tests =
                         // reason an event does. A response body has neither.
                         let renamed = shape "CreateBillRequest" 2 [ field "supplierId" text true ]
 
-                        match Wire.unresolvedRequests [] [] (snap createV1) (snap renamed) with
+                        // The rename among the report; the same change also
+                        // strands v1 and leaves v2 unrecorded, and those are
+                        // pinned in UnrecordedTests.
+                        let refusals =
+                            Wire.unresolvedRequests [] [] (snap createV1) (snap renamed)
+                            |> List.filter (fun p -> p.Message.Contains "either a rename")
+
+                        match refusals with
                         | [ problem ] ->
                             Expect.stringContains problem.Message "'vendorId'" "what went"
                             Expect.stringContains problem.Message "'supplierId'" "and what arrived"
@@ -136,7 +185,14 @@ let tests =
                         // is being pointed at a system they do not have.
                         let renamed = shape "CreateBillRequest" 2 [ field "supplierId" text true ]
 
-                        match Wire.unresolvedRequests [] [] (snap createV1) (snap renamed) with
+                        // The rename among the report; the same change also
+                        // strands v1 and leaves v2 unrecorded, and those are
+                        // pinned in UnrecordedTests.
+                        let refusals =
+                            Wire.unresolvedRequests [] [] (snap createV1) (snap renamed)
+                            |> List.filter (fun p -> p.Message.Contains "either a rename")
+
+                        match refusals with
                         | [ problem ] ->
                             Expect.stringContains problem.Message "bodies already sent" "the wire noun"
 

@@ -14,4 +14,5 @@ let main argv =
                 SnapshotTests.tests
                 CompatibilityTests.tests
                 WireTests.tests
+                UnrecordedTests.tests
             ])

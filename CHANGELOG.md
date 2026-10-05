@@ -13,6 +13,68 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.15]
+
+Four changes `Etymon.Schema.Compatibility` let pass without a verdict, found
+by the [review of 2026-10-05](docs/review-2026-10-05.md) and designed in
+[the snapshot must not lag](docs/design/compatibility-unrecorded-2026-10-05.md).
+Every consumer harness had the same three tests, and every one of the four
+passed all three.
+
+### Fixed
+
+- **A snapshot could lag without anything saying so.** An optional field
+  added to a stored event breaks neither direction, so `Compatibility.between`
+  said nothing, and nothing demanded the committed file be regenerated. A later
+  removal of the same field, now required, was compared against a file that
+  never carried the field, and passed. `Events.unrecorded` and
+  `Wire.unrecorded` now report every current shape the committed snapshot does
+  not record as the shape is now, naming the fields, and `Events.check`,
+  `Wire.unresolvedRequests` and the new `Wire.unresolvedResponses` include the
+  report. One consumer had patched the miss as a text comparison of the two
+  files in the consumer's own test support.
+- **A removed shape had no verdict.** `Compatibility.between` visited the names
+  of the current snapshot only, so a shape present in the committed file and
+  gone from the code produced nothing. The union of both snapshots' names is
+  visited, and a removed shape is reported as breaking both directions: what
+  was already written under the name has nothing reading the shape, and
+  already-deployed code reading the name receives nothing.
+- **A declared rename had no verdict.** The declaration matched the old name
+  with the new one and then said nothing, although new code reading a stored
+  event looks for the new name and finds the old one, and a client already
+  written reads the old name in a response that now carries the new one. A
+  declared rename of a required field is reported as a rename, breaking both
+  directions. An optional field renamed breaks neither, as an optional field
+  added or removed does.
+- **Stranded versions were looked for in the current snapshot alone.** A
+  harness derives the current snapshot from the codecs, so the current snapshot
+  carries only the versions the code declares today, while the committed file
+  is where the stored versions live. `Events.check` and
+  `Wire.unresolvedRequests` compute reachability over
+  `ShapeSnapshot.extend before after`, so a version in the file that the code
+  no longer declares still demands an upcaster.
+
+### Added
+
+- **`ShapeSnapshot.extend committed current`**: the regeneration primitive.
+  Every committed shape stays, and each current shape is added or replaces the
+  committed shape of the same name and version. Regenerate with
+  `ShapeSnapshots.toJson (ShapeSnapshot.extend committed current)` and history
+  stops disappearing from the file.
+- **`Wire.unresolvedResponses renames before after`**: rename ambiguities and
+  the lag report for the response side, which had no unresolved report at all.
+
+### Breaking
+
+- Behavior, not signatures. `Events.check` and `Wire.unresolvedRequests` report
+  a lagging snapshot and versions found only in the committed file;
+  `Compatibility.between` reports removed shapes and declared renames of
+  required fields. A harness green on preview.14 can go red on preview.15
+  wherever the committed file does not describe the codecs, which is the
+  point. Regenerate the file with `ShapeSnapshot.extend`, drop any names-only
+  check and any text comparison of the two files, and declare the upcasters the
+  report names.
+
 ## [0.1.0-preview.14]
 
 ### Fixed

@@ -40,8 +40,8 @@ type Unresolved =
     }
 
 /// <summary>
-/// The two checks a versioned-shape policy has to make, without the vocabulary
-/// of any one policy.
+/// The checks a versioned-shape policy has to make, without the vocabulary of
+/// any one policy.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -60,8 +60,70 @@ type Unresolved =
 /// </para>
 /// </remarks>
 module internal Detect =
-    /// Versions no chain of upcasters brings to the current one. `oldShapes`
-    /// names what the policy keeps: "stored shapes", "bodies already sent".
+    /// Versions among `versions` that no chain of upcasters brings to
+    /// `current`, as one report for the shape, or none.
+    let private strandedAmong
+        (oldShapes: string)
+        (upcasters: Upcaster list)
+        (name: string)
+        (current: int)
+        (versions: int list)
+        : Unresolved option
+        =
+        let edges =
+            upcasters
+            |> List.filter (fun u -> String.Equals(u.Shape, name, StringComparison.Ordinal))
+
+        // Walk forward from a version until nothing new is reachable.
+        let reaches (start: int) =
+            let mutable seen = Set.singleton start
+            let mutable frontier = [ start ]
+
+            while not frontier.IsEmpty do
+                let next =
+                    frontier
+                    |> List.collect (fun v -> edges |> List.filter (fun e -> e.Reads = v))
+                    |> List.map (fun e -> e.Produces)
+                    |> List.filter (fun v -> not (seen.Contains v))
+
+                seen <- next |> List.fold (fun acc v -> acc.Add v) seen
+                frontier <- next |> List.distinct
+
+            seen.Contains current
+
+        let stranded = versions |> List.filter (fun v -> v <> current && not (reaches v))
+
+        if List.isEmpty stranded then
+            None
+        else
+            let storedVersions =
+                versions |> List.map (fun v -> $"v%d{v}") |> fun vs -> String.Join(" and ", vs)
+
+            let declared =
+                match edges with
+                | [] -> "No upcasters are declared for it."
+                | _ ->
+                    let chains =
+                        edges
+                        |> List.sortBy (fun e -> e.Reads)
+                        |> List.map (fun e -> $"v%d{e.Reads} -> v%d{e.Produces}")
+
+                    let listed = String.Join(", ", chains)
+                    $"Upcasters exist for %s{listed}."
+
+            let missing =
+                stranded |> List.map (fun v -> $"v%d{v}") |> fun vs -> String.Join(", ", vs)
+
+            Some
+                {
+                    Shape = name
+                    Message =
+                        $"'%s{name}' has %s{oldShapes} at %s{storedVersions}, and the current shape is v%d{current}. %s{declared} Nothing reads %s{missing}."
+                }
+
+    /// Versions no chain of upcasters brings to the highest version in the
+    /// snapshot. `oldShapes` names what the policy keeps: "stored shapes",
+    /// "bodies already sent".
     let strandedVersions (oldShapes: string) (upcasters: Upcaster list) (snapshot: ShapeSnapshot) : Unresolved list =
         ShapeSnapshot.names snapshot
         |> List.choose (fun name ->
@@ -69,59 +131,27 @@ module internal Detect =
 
             match versions with
             | [] -> None
-            | _ ->
-                let current = List.max versions
+            | _ -> strandedAmong oldShapes upcasters name (List.max versions) versions
+        )
 
-                let edges =
-                    upcasters
-                    |> List.filter (fun u -> String.Equals(u.Shape, name, StringComparison.Ordinal))
-
-                // Walk forward from a version until nothing new is reachable.
-                let reaches (start: int) =
-                    let mutable seen = Set.singleton start
-                    let mutable frontier = [ start ]
-
-                    while not frontier.IsEmpty do
-                        let next =
-                            frontier
-                            |> List.collect (fun v -> edges |> List.filter (fun e -> e.Reads = v))
-                            |> List.map (fun e -> e.Produces)
-                            |> List.filter (fun v -> not (seen.Contains v))
-
-                        seen <- next |> List.fold (fun acc v -> acc.Add v) seen
-                        frontier <- next |> List.distinct
-
-                    seen.Contains current
-
-                let stranded = versions |> List.filter (fun v -> v <> current && not (reaches v))
-
-                if List.isEmpty stranded then
-                    None
-                else
-                    let storedVersions =
-                        versions |> List.map (fun v -> $"v%d{v}") |> fun vs -> String.Join(" and ", vs)
-
-                    let declared =
-                        match edges with
-                        | [] -> "No upcasters are declared for it."
-                        | _ ->
-                            let chains =
-                                edges
-                                |> List.sortBy (fun e -> e.Reads)
-                                |> List.map (fun e -> $"v%d{e.Reads} -> v%d{e.Produces}")
-
-                            let listed = String.Join(", ", chains)
-                            $"Upcasters exist for %s{listed}."
-
-                    let missing =
-                        stranded |> List.map (fun v -> $"v%d{v}") |> fun vs -> String.Join(", ", vs)
-
-                    Some
-                        {
-                            Shape = name
-                            Message =
-                                $"'%s{name}' has %s{oldShapes} at %s{storedVersions}, and the current shape is v%d{current}. %s{declared} Nothing reads %s{missing}."
-                        }
+    /// Versions among both snapshots together that no chain of upcasters
+    /// brings to the version the code declares. The committed file is where
+    /// the stored versions live and the code declares what is read today, so
+    /// the target is the code's version, whatever the file's highest is. A
+    /// name the code no longer declares is left to the removed-shape verdict.
+    let strandedVersionsToward
+        (oldShapes: string)
+        (upcasters: Upcaster list)
+        (code: ShapeSnapshot)
+        (merged: ShapeSnapshot)
+        : Unresolved list
+        =
+        ShapeSnapshot.names code
+        |> List.choose (fun name ->
+            match ShapeSnapshot.tryLatest name code with
+            | None -> None
+            | Some current ->
+                strandedAmong oldShapes upcasters name current.Version (ShapeSnapshot.versionsOf name merged)
         )
 
     /// Removals and additions in one version that might be a rename. `decides`
@@ -137,11 +167,20 @@ module internal Detect =
         |> List.collect (fun name ->
             match ShapeSnapshot.tryLatest name before, ShapeSnapshot.tryLatest name after with
             | Some previous, Some current ->
-                let declared (field: string) fromSide =
+                // A declaration whose old name the previous shape no longer
+                // carries is spent: the file already records the new name,
+                // and the declaration must not vouch for a later addition.
+                let live =
                     renames
-                    |> List.exists (fun r ->
+                    |> List.filter (fun r ->
                         String.Equals(r.Shape, name, StringComparison.Ordinal)
-                        && String.Equals((if fromSide then r.From else r.To), field, StringComparison.Ordinal)
+                        && (Shape.tryField r.From previous).IsSome
+                    )
+
+                let declared (field: string) fromSide =
+                    live
+                    |> List.exists (fun r ->
+                        String.Equals((if fromSide then r.From else r.To), field, StringComparison.Ordinal)
                     )
 
                 let removed =
@@ -174,6 +213,70 @@ module internal Detect =
                         }
                     ]
             | _ -> []
+        )
+
+    /// Every current shape the committed snapshot does not record as the shape
+    /// is now: a name or version absent from the file, or the same name and
+    /// version with different fields. `measuredAgainst` names what the next
+    /// comparison would otherwise be measured against: "what was already
+    /// written", "what was already sent".
+    ///
+    /// A lagging file is how a safe change hides a later unsafe one: an optional
+    /// field added and never recorded, then removed as a required field, was
+    /// compared against a file that never carried the field.
+    let unrecorded (measuredAgainst: string) (committed: ShapeSnapshot) (current: ShapeSnapshot) : Unresolved list =
+        let regenerate =
+            $"Regenerate the snapshot from ShapeSnapshot.extend committed current and commit the file, so the next change is measured against %s{measuredAgainst}."
+
+        current.Shapes
+        |> List.choose (fun shape ->
+            match ShapeSnapshot.tryShape shape.Name shape.Version committed with
+            | None ->
+                Some
+                    {
+                        Shape = shape.Name
+                        Message =
+                            $"'%s{shape.Name}' v%d{shape.Version} is not in the committed snapshot. %s{regenerate}"
+                    }
+            | Some recorded ->
+                let quoted (fields: ShapeField list) =
+                    String.Join(", ", fields |> List.map (fun f -> $"'%s{f.Name}'"))
+
+                let missing =
+                    shape.Fields |> List.filter (fun f -> (Shape.tryField f.Name recorded).IsNone)
+
+                let extra =
+                    recorded.Fields |> List.filter (fun f -> (Shape.tryField f.Name shape).IsNone)
+
+                let differing =
+                    shape.Fields
+                    |> List.filter (fun f ->
+                        match Shape.tryField f.Name recorded with
+                        | Some r -> r <> f
+                        | None -> false
+                    )
+
+                let parts =
+                    [
+                        if not missing.IsEmpty then
+                            $"lacks %s{quoted missing}"
+                        if not extra.IsEmpty then
+                            $"still carries %s{quoted extra}"
+                        if not differing.IsEmpty then
+                            $"records %s{quoted differing} differently"
+                    ]
+
+                match parts with
+                | [] -> None
+                | parts ->
+                    let described = String.Join(", ", parts)
+
+                    Some
+                        {
+                            Shape = shape.Name
+                            Message =
+                                $"'%s{shape.Name}' v%d{shape.Version} is not recorded as the shape is now: the committed snapshot %s{described}. %s{regenerate}"
+                        }
         )
 
     /// The items as prose, one paragraph each. Shared because the rendering is

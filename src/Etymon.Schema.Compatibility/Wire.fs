@@ -78,8 +78,15 @@ module Wire =
         change.Breaks
         |> List.filter (fun (d, _) -> d = direction)
         |> List.map (fun (_, why) ->
+            // A removed shape has no field and no current body: on the request
+            // side there is nothing for an upcaster to produce, so the verdict
+            // is as final as a response verdict.
+            let fixable = side = WireSide.Request && change.Field.IsSome
+
             let consequence =
                 match side with
+                | WireSide.Request when not fixable ->
+                    $"%s{why} Nothing can be upcast into a body nothing reads. Keep the shape readable, or version the endpoint."
                 | WireSide.Request -> $"%s{why} An upcaster must take the old body and produce the current one."
                 | WireSide.Response ->
                     // Deliberately blunt. The value of this verdict is that it
@@ -92,7 +99,7 @@ module Wire =
                 Side = side
                 Change = change.Description
                 Consequence = consequence
-                Fixable = (side = WireSide.Request)
+                Fixable = fixable
             }
         )
 
@@ -141,6 +148,22 @@ module Wire =
         verdicts |> List.filter (fun v -> not v.Fixable)
 
     /// <summary>
+    /// Every current shape the committed snapshot does not record as the shape
+    /// is now, on either side of the wire.
+    /// </summary>
+    /// <remarks>
+    /// A field added to a response breaks nobody, so nothing demanded the file
+    /// be regenerated, and the next change was measured against a file that did
+    /// not describe what crossed the wire. This names the fields and says to
+    /// regenerate with <c>ShapeSnapshot.extend</c>.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// Wire.unrecorded committed current
+    /// </code></example>
+    let unrecorded (committed: ShapeSnapshot) (current: ShapeSnapshot) : Unresolved list =
+        Detect.unrecorded "what was already sent" committed current
+
+    /// <summary>
     /// Renames and upcaster gaps on the request side, which must be settled the
     /// same way they are for events.
     /// </summary>
@@ -170,7 +193,27 @@ module Wire =
         (after: ShapeSnapshot)
         =
         Detect.renameAmbiguities "whether bodies already sent can be read" renames before after
-        @ Detect.strandedVersions "bodies already sent" upcasters after
+        @ Detect.strandedVersionsToward "bodies already sent" upcasters after (ShapeSnapshot.extend before after)
+        @ unrecorded before after
+
+    /// <summary>
+    /// Renames on the response side, which must be declared or confirmed
+    /// separate, and response shapes the committed snapshot does not record.
+    /// </summary>
+    /// <remarks>
+    /// No upcasters, because a response has no version a client could be
+    /// upcast from: the code that reads the body is not code you ship. The
+    /// rename question is the same as for a request, and the answer decides
+    /// whether a client already written still finds the field.
+    /// </remarks>
+    /// <example><code lang="fsharp">
+    /// match Wire.unresolvedResponses renames previous current with
+    /// | [] -> ()
+    /// | problems -> failwith (Wire.reportUnresolved problems)
+    /// </code></example>
+    let unresolvedResponses (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) =
+        Detect.renameAmbiguities "whether clients already written can read what you send" renames before after
+        @ unrecorded before after
 
     /// <summary>The unresolved request items as prose, one paragraph each.</summary>
     /// <remarks>

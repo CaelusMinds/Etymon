@@ -233,6 +233,32 @@ namespace Etymon
         
         /// <summary>The highest version recorded under a name.</summary>
         val tryLatest: name: string -> snapshot: ShapeSnapshot -> Shape option
+        
+        /// <summary>
+        /// The committed snapshot with every current shape added, or replacing the
+        /// committed shape of the same name and version.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The regeneration primitive. A harness derives the current snapshot from
+        /// the codecs, so the current snapshot carries only the versions the code
+        /// declares today; the committed file is where the stored versions live. A
+        /// file regenerated from the current snapshot alone forgets every version
+        /// the code stopped declaring, and with the version goes the evidence that
+        /// events at the version exist.
+        /// </para>
+        /// <para>
+        /// A version present only in the committed snapshot therefore stays. A
+        /// shape present in both is taken from the current snapshot, so an in-place
+        /// change the matrix reports as safe (an optional field added, say) is
+        /// recorded as the shape is now.
+        /// </para>
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// File.WriteAllText(path, ShapeSnapshots.toJson (ShapeSnapshot.extend committed current))
+        /// </code></example>
+        val extend:
+          committed: ShapeSnapshot -> current: ShapeSnapshot -> ShapeSnapshot
 
 namespace Etymon
     
@@ -490,8 +516,8 @@ namespace Etymon
         }
     
     /// <summary>
-    /// The two checks a versioned-shape policy has to make, without the vocabulary
-    /// of any one policy.
+    /// The checks a versioned-shape policy has to make, without the vocabulary of
+    /// any one policy.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -511,12 +537,31 @@ namespace Etymon
     /// </remarks>
     module internal Detect =
         
-        /// Versions no chain of upcasters brings to the current one. `oldShapes`
-        /// names what the policy keeps: "stored shapes", "bodies already sent".
+        /// Versions among `versions` that no chain of upcasters brings to
+        /// `current`, as one report for the shape, or none.
+        val private strandedAmong:
+          oldShapes: string ->
+            upcasters: Upcaster list ->
+            name: string ->
+            current: int -> versions: int list -> Unresolved option
+        
+        /// Versions no chain of upcasters brings to the highest version in the
+        /// snapshot. `oldShapes` names what the policy keeps: "stored shapes",
+        /// "bodies already sent".
         val strandedVersions:
           oldShapes: string ->
             upcasters: Upcaster list ->
             snapshot: ShapeSnapshot -> Unresolved list
+        
+        /// Versions among both snapshots together that no chain of upcasters
+        /// brings to the version the code declares. The committed file is where
+        /// the stored versions live and the code declares what is read today, so
+        /// the target is the code's version, whatever the file's highest is. A
+        /// name the code no longer declares is left to the removed-shape verdict.
+        val strandedVersionsToward:
+          oldShapes: string ->
+            upcasters: Upcaster list ->
+            code: ShapeSnapshot -> merged: ShapeSnapshot -> Unresolved list
         
         /// Removals and additions in one version that might be a rename. `decides`
         /// names what the ambiguity decides, which is the policy's to say.
@@ -524,6 +569,20 @@ namespace Etymon
           decides: string ->
             renames: Rename list ->
             before: ShapeSnapshot -> after: ShapeSnapshot -> Unresolved list
+        
+        /// Every current shape the committed snapshot does not record as the shape
+        /// is now: a name or version absent from the file, or the same name and
+        /// version with different fields. `measuredAgainst` names what the next
+        /// comparison would otherwise be measured against: "what was already
+        /// written", "what was already sent".
+        ///
+        /// A lagging file is how a safe change hides a later unsafe one: an optional
+        /// field added and never recorded, then removed as a required field, was
+        /// compared against a file that never carried the field.
+        val unrecorded:
+          measuredAgainst: string ->
+            committed: ShapeSnapshot ->
+            current: ShapeSnapshot -> Unresolved list
         
         /// The items as prose, one paragraph each. Shared because the rendering is
         /// not a policy decision -- only the words being rendered are.
@@ -595,7 +654,37 @@ namespace Etymon
           renames: Rename list ->
             before: ShapeSnapshot -> after: ShapeSnapshot -> Unresolved list
         
+        /// <summary>
+        /// Every current shape the committed snapshot does not record as the shape
+        /// is now.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The matrix is right that an optional field breaks neither direction, and
+        /// that is exactly how a snapshot comes to lag: nothing demanded the file be
+        /// regenerated, and the next change was measured against a file that did
+        /// not describe the bytes. This says so, names the fields, and says to
+        /// regenerate with <c>ShapeSnapshot.extend</c>.
+        /// </para>
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// Events.unrecorded committed current
+        /// // "'InvoiceRaised' v1 is not recorded as the shape is now: the committed snapshot
+        /// //  lacks 'note'. Regenerate the snapshot from ShapeSnapshot.extend committed
+        /// //  current and commit the file, so the next change is measured against
+        /// //  what was already written."
+        /// </code></example>
+        val unrecorded:
+          committed: ShapeSnapshot -> current: ShapeSnapshot -> Unresolved list
+        
         /// <summary>Everything unresolved about a change, as one report.</summary>
+        /// <remarks>
+        /// Stranded versions are computed over both snapshots together, through
+        /// <c>ShapeSnapshot.extend</c>, toward the version the code declares: the
+        /// committed file is where the stored versions live, the current snapshot
+        /// is what the code reads today, and a version in the file that the code
+        /// no longer declares still needs an upcaster.
+        /// </remarks>
         /// <example><code lang="fsharp">
         /// match Events.check upcasters renames previous current with
         /// | [] -> ()
@@ -729,6 +818,22 @@ namespace Etymon
         val unfixable: verdicts: WireVerdict list -> WireVerdict list
         
         /// <summary>
+        /// Every current shape the committed snapshot does not record as the shape
+        /// is now, on either side of the wire.
+        /// </summary>
+        /// <remarks>
+        /// A field added to a response breaks nobody, so nothing demanded the file
+        /// be regenerated, and the next change was measured against a file that did
+        /// not describe what crossed the wire. This names the fields and says to
+        /// regenerate with <c>ShapeSnapshot.extend</c>.
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// Wire.unrecorded committed current
+        /// </code></example>
+        val unrecorded:
+          committed: ShapeSnapshot -> current: ShapeSnapshot -> Unresolved list
+        
+        /// <summary>
         /// Renames and upcaster gaps on the request side, which must be settled the
         /// same way they are for events.
         /// </summary>
@@ -754,6 +859,25 @@ namespace Etymon
         val unresolvedRequests:
           upcasters: Upcaster list ->
             renames: Rename list ->
+            before: ShapeSnapshot -> after: ShapeSnapshot -> Unresolved list
+        
+        /// <summary>
+        /// Renames on the response side, which must be declared or confirmed
+        /// separate, and response shapes the committed snapshot does not record.
+        /// </summary>
+        /// <remarks>
+        /// No upcasters, because a response has no version a client could be
+        /// upcast from: the code that reads the body is not code you ship. The
+        /// rename question is the same as for a request, and the answer decides
+        /// whether a client already written still finds the field.
+        /// </remarks>
+        /// <example><code lang="fsharp">
+        /// match Wire.unresolvedResponses renames previous current with
+        /// | [] -> ()
+        /// | problems -> failwith (Wire.reportUnresolved problems)
+        /// </code></example>
+        val unresolvedResponses:
+          renames: Rename list ->
             before: ShapeSnapshot -> after: ShapeSnapshot -> Unresolved list
         
         /// <summary>The unresolved request items as prose, one paragraph each.</summary>

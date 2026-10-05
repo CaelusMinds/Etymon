@@ -61,7 +61,10 @@ in the system.
 // and the two cannot disagree.
 let raisedV2 = Shape.ofSchema 2 invoiceRaisedSchema
 
-// A snapshot, committed to the repository.
+// A snapshot, committed to the repository. The first commit is written from the
+// shapes alone; every regeneration after that goes through
+// ShapeSnapshot.extend committed current, which keeps the versions the code
+// stopped declaring (see "The snapshot must not lag").
 File.WriteAllText("events.snapshot.json", ShapeSnapshots.toJson (ShapeSnapshot.of' shapes))
 
 // Two snapshots in, verdicts out. Never a database.
@@ -102,6 +105,8 @@ has both sides.
 | widened a constraint | compatible | **breaking** |
 | added a union case | compatible | **breaking** — old code cannot read it |
 | removed a union case | **breaking** — old events carry it | compatible |
+| **removed a shape** | **breaking** — what was written has no reader | **breaking** — old code reads a shape nothing writes |
+| **renamed a required field** (declared) | **breaking** — needs an upcaster | **breaking** — old code reads the old name |
 
 Constraint changes are reported in **both** directions, because this compares
 rules rather than interpreting them: whether a change narrowed or widened is a
@@ -119,8 +124,65 @@ difference decides whether stored events can be read. So it refuses:
 ```
 
 ```fsharp
-let renames = [ { Event = "InvoiceRaised"; From = "total"; To = "amount" } ]
+let renames = [ { Shape = "InvoiceRaised"; From = "total"; To = "amount" } ]
 ```
+
+Declaring the rename settles the ambiguity; the rename is still a change. New
+code reading what was already written looks for `amount` and finds `total`,
+and already-deployed code reads `total` in what now carries `amount`, so a
+renamed required field breaks both directions and is reported as a rename
+rather than as a removal plus an addition. An optional field renamed breaks
+neither, as an optional field added or removed does.
+
+## The snapshot must not lag
+
+The matrix is right that an optional field breaks neither direction, and that
+is exactly how a committed file comes to lag: nothing demanded the file be
+regenerated, and the next change was measured against a file that did not
+describe the bytes. An optional field added and never recorded, then removed
+as a required field, compared against a file that never carried the field.
+
+`Events.check`, `Wire.unresolvedRequests` and `Wire.unresolvedResponses`
+therefore report every current shape the committed snapshot does not record as
+the shape is now, and name the fields:
+
+```
+  'InvoiceRaised' v1 is not recorded as the shape is now: the committed snapshot lacks
+  'note'. Regenerate the snapshot from ShapeSnapshot.extend committed current
+  and commit the file, so the next change is measured against what was already
+  written.
+```
+
+Regenerate with `extend`, never from the current shapes alone. The current
+snapshot carries only the versions the code declares today; the committed file
+is where the stored versions live, and a file regenerated from the code alone
+forgets every version the code stopped declaring, and with the version goes
+the evidence that events at the version exist.
+
+```fsharp
+File.WriteAllText(path, ShapeSnapshots.toJson (ShapeSnapshot.extend committed current))
+```
+
+Stranded versions are found the same way, over both snapshots together and
+toward the version the code declares: a version the committed file carries and
+the code no longer declares still needs an upcaster, and `Events.check` says
+so.
+
+A change that breaks reading therefore goes in three steps. The Backward
+verdict arrives against the committed file, and the answer is to give the
+changed shape a new version and declare the upcaster from the old one. The
+verdict stays until the file records the new version, because the matrix
+compares the file's latest shape with the code's latest shape; so the second
+step is to regenerate with `extend`, which keeps the old version beside the new
+one. The third step is the check going green with the upcaster declared and
+both versions in the file, and staying green only while the upcaster exists.
+A harness that refuses to regenerate belongs only to a Backward break that
+arrives without a new version.
+
+A rename declaration is read only while the committed shape still carries the
+old name. Once the file records the new name the declaration is spent and is
+ignored, so a declaration left in a harness never hides a later change to the
+renamed field; remove the declaration at the next tidy-up.
 
 ## Every stored version must be readable
 
@@ -161,6 +223,10 @@ moment before shipping.
 match Wire.responses renames previous current |> Wire.unfixable with
 | [] -> ()
 | breaks -> failwith (Wire.report breaks)
+
+match Wire.unresolvedResponses renames previous current with
+| [] -> ()
+| problems -> failwith (Wire.reportUnresolved problems)
 ```
 
 ```
