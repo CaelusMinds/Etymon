@@ -155,6 +155,13 @@ regeneration that keeps the versions the code stopped declaring. Enforced by
 `tests/Etymon.Schema.Compatibility.Tests/UnrecordedTests.fs`; designed in
 [the snapshot must not lag](design/compatibility-unrecorded-2026-10-05.md).
 
+A nested object and a union case payload are shapes in the snapshot, derived by
+`Shape.ofSchemaDeep`, never only names in a field type; a nested name no shape
+carries is reported as unresolved. Enforced by
+`tests/Etymon.Schema.Compatibility.Tests/ShapeTests.fs` and the nested cases in
+`UnrecordedTests.fs`; designed in
+[nested shapes and union payloads are recorded, not named](design/compatibility-deep-shapes-2026-10-05.md).
+
 ## Open
 
 | Question | State |

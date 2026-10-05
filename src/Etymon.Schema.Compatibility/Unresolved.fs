@@ -279,6 +279,40 @@ module internal Detect =
                         }
         )
 
+    /// Every field that refers, at any depth through a list, a map or a
+    /// nullable, to a nested name no shape in the snapshot carries. A nested
+    /// shape nobody recorded is a shape no check covers, and a change inside
+    /// the shape passes unseen.
+    let unrecordedNested (snapshot: ShapeSnapshot) : Unresolved list =
+        let rec referenced (fieldType: FieldType) =
+            match fieldType with
+            | FieldType.Nested name -> [ name ]
+            | FieldType.Sequence inner
+            | FieldType.Mapping inner
+            | FieldType.Nullable inner -> referenced inner
+            | FieldType.Scalar _
+            | FieldType.Choice _
+            | FieldType.Unknown -> []
+
+        let names = ShapeSnapshot.names snapshot |> Set.ofList
+
+        snapshot.Shapes
+        |> List.collect (fun shape ->
+            shape.Fields
+            |> List.collect (fun field ->
+                referenced field.Type
+                |> List.filter (fun name -> not (names.Contains name))
+                |> List.map (fun name ->
+                    {
+                        Shape = shape.Name
+                        Message =
+                            $"'%s{shape.Name}' v%d{shape.Version} refers to '%s{name}' in '%s{field.Name}', and no shape named '%s{name}' is in the snapshot, so a change inside '%s{name}' passes unseen. Derive the shapes with Shape.ofSchemaDeep, or add the shape."
+                    }
+                )
+            )
+        )
+        |> List.distinctBy (fun p -> p.Shape, p.Message)
+
     /// The items as prose, one paragraph each. Shared because the rendering is
     /// not a policy decision -- only the words being rendered are.
     let report (problems: Unresolved list) =

@@ -105,6 +105,7 @@ module Events =
         undeclaredRenames renames before after
         @ Detect.strandedVersionsToward "stored shapes" upcasters after (ShapeSnapshot.extend before after)
         @ unrecorded before after
+        @ Detect.unrecordedNested after
 
     /// <summary>The unresolved items as prose, one per paragraph.</summary>
     let report (problems: Unresolved list) = Detect.report problems

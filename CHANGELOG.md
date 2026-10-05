@@ -13,6 +13,59 @@ While the suite is in preview the API can change between previews, and it does.
 Each entry below says what breaks and what to do about it, because a preview
 that moves quietly is worse than one that moves.
 
+## [0.1.0-preview.16]
+
+A shape snapshot stopped at a nested name, so a change inside a nested object
+or a union case passed every harness. Found by the
+[review of 2026-10-05](docs/review-2026-10-05.md) (action 2) and designed in
+[nested shapes and union payloads are recorded, not named](docs/design/compatibility-deep-shapes-2026-10-05.md).
+
+### Added
+
+- **`Shape.ofSchemaDeep version schema`**: the root shape and every shape
+  reachable from the root, in name order, at one version. A nested object or
+  union is recorded under the object's or union's own name, once; a union
+  case with an object or union payload under the payload's own name; a union
+  case with any other recordable payload under `Union.tag` with one field
+  named `$`; a case with no payload records nothing. A reference to a
+  recorded union resolves to the union's cases. Two different definitions
+  under one name are refused. Harnesses replace a hand-kept list of nested
+  shapes with `codecs |> List.collect (Shape.ofSchemaDeep 1)`.
+- **A nested object name with no shape is unresolved.** `Events.check`,
+  `Wire.unresolvedRequests` and `Wire.unresolvedResponses` report every field
+  that refers, at any depth through a list, a map or a nullable, to a nested
+  object name no shape in the snapshot carries, with the remedy. A union
+  case payload a hand-kept list misses is not a reference the snapshot can
+  see, and is covered only by `Shape.ofSchemaDeep`.
+- **`ShapeField.Default`** records a field's default as the encoded JSON text,
+  and a changed default is reported as breaking Backward: what was already
+  written and lacks the field now reads as a different value. The snapshot
+  format is version 3; version-2 files still read, with defaults not recorded
+  and so never compared.
+
+### Fixed
+
+- **A union-rooted or list-rooted `Schema` produced a shape with no fields and
+  no error.** A union root now records one field named after the tag key with
+  the union's cases; any other non-object root records one field named `$`
+  with the root's type and rules. Every change to such a payload is a change to
+  a field, and reported.
+- **`ShapeSnapshot.of'` kept two shapes under one name and version.** Identical
+  copies, which several roots sharing one nested object now produce, collapse
+  to one; two different shapes under one name and version are refused.
+
+### Breaking
+
+- `ShapeField` gains `Default: string option option`. Code constructing
+  `ShapeField` by hand adds the field, `Some None` for a field with no
+  default.
+- A regenerated snapshot changes for every union-rooted or non-object-rooted
+  shape, which gains a field, and for every field, which gains a `default`
+  key. Regenerate with `ShapeSnapshot.extend committed current` as usual; the
+  lag report names the shapes.
+- A harness that lists nested shapes by hand and misses a nested object goes
+  red with the name of the missing shape.
+
 ## [0.1.0-preview.15]
 
 Four changes `Etymon.Schema.Compatibility` let pass without a verdict, found

@@ -15,6 +15,7 @@ let private field name t required constraints : ShapeField =
         Required = required
         Constraints = constraints
         ElementConstraints = Some []
+        Default = Some None
     }
 
 /// One of every FieldType, so nothing in the union goes untested.
@@ -35,6 +36,9 @@ let private everyShape: Shape =
     }
 
 let private snapshot = ShapeSnapshot.of' [ everyShape ]
+
+let private fieldNamed name (shape: Shape) =
+    shape.Fields |> List.find (fun f -> f.Name = name)
 
 let tests =
     testList
@@ -101,6 +105,74 @@ let tests =
                             "read as not recorded, not refused"
                     | None -> failtest "the shape should be there"
                 | Error errors -> failtestf "an old snapshot should still read: %s" (ValidationErrors.format errors)
+            }
+
+            test "a version-2 file reads a default as not recorded" {
+                let old =
+                    """{"formatVersion":2,"shapes":[{"name":"A","version":1,"fields":[
+                        {"name":"note","type":{"kind":"scalar","value":"string"},"required":false,"constraints":[],"elementConstraints":[]}]}]}"""
+
+                match ShapeSnapshots.fromJson old with
+                | Ok snapshot ->
+                    match ShapeSnapshot.tryLatest "A" snapshot with
+                    | Some shape -> Expect.equal (List.head shape.Fields).Default None "not recorded, never none"
+                    | None -> failtest "the shape should be there"
+                | Error errors ->
+                    failtestf "a version-2 snapshot should still read: %s" (ValidationErrors.format errors)
+            }
+
+            test "a recorded default and a recorded none both survive a round trip" {
+                let withDefault =
+                    { field "note" (FieldType.Scalar "string") false [] with
+                        Default = Some(Some "\"none\"")
+                    }
+
+                let withoutDefault = field "id" (FieldType.Scalar "string") true []
+
+                let shape: Shape =
+                    {
+                        Name = "A"
+                        Version = 1
+                        Fields = [ withoutDefault; withDefault ]
+                    }
+
+                match ShapeSnapshots.fromJson (ShapeSnapshots.toJson (ShapeSnapshot.of' [ shape ])) with
+                | Ok snapshot ->
+                    match ShapeSnapshot.tryLatest "A" snapshot with
+                    | Some read ->
+                        Expect.equal (fieldNamed "note" read).Default (Some(Some "\"none\"")) "the default"
+                        Expect.equal (fieldNamed "id" read).Default (Some None) "and the recorded none"
+                    | None -> failtest "the shape should be there"
+                | Error errors -> failtestf "should round-trip: %s" (ValidationErrors.format errors)
+            }
+
+            test "identical duplicates collapse, and different ones are refused" {
+                let a = field "a" (FieldType.Scalar "string") true []
+
+                let line: Shape =
+                    {
+                        Name = "Line"
+                        Version = 1
+                        Fields = [ a ]
+                    }
+
+                Expect.equal
+                    (ShapeSnapshot.of' [ line; line ]).Shapes
+                    [ line ]
+                    "one nested object reached from two roots is one shape"
+
+                let other = { line with Fields = [] }
+
+                let message =
+                    try
+                        ShapeSnapshot.of' [ line; other ] |> ignore
+                        None
+                    with :? System.ArgumentException as e ->
+                        Some e.Message
+
+                match message with
+                | Some text -> Expect.stringContains text "'Line' v1" "named"
+                | None -> failtest "two shapes under one name and version were accepted"
             }
 
             test "recorded-and-empty survives a round trip as recorded, not as unrecorded" {

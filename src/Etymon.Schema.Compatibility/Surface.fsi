@@ -78,6 +78,13 @@ namespace Etymon
           /// nothing can be compared against it, so nothing is. <c>Some []</c>
           /// is recorded, and empty.
           ElementConstraints: Constraint list option
+          
+          /// The field's default, as the encoded JSON text, where the field has
+          /// one. The outer option is whether the writer recorded a default at
+          /// all: a snapshot written before the key existed reads as None and is
+          /// never compared, as element rules are. The inner option is whether
+          /// the field has a default; a JSON null default is Some "null".
+          Default: string option option
         }
     
     /// <summary>
@@ -144,6 +151,23 @@ namespace Etymon
         /// wrapper so that a list that may itself be null still reports them.
         val private elementConstraints: info: SchemaInfo -> Constraint list
         
+        /// A default as the text a snapshot records: the encoded JSON, with a JSON
+        /// null default spelled "null" because JsonNode has no other value for it.
+        val private defaultText:
+          node: System.Text.Json.Nodes.JsonNode option -> string option
+        
+        val private fieldOf: field: FieldInfo -> ShapeField
+        
+        /// The fields of a payload. An object's fields are the object's fields. A
+        /// union is one field, named after the tag key, holding the union's cases.
+        /// Anything else is one field named "$", the document root, holding the
+        /// payload's type and rules; a payload with no fields to compare used to
+        /// record none, and every change to the payload then passed unseen.
+        val private fieldsOf: info: SchemaInfo -> ShapeField list
+        
+        val private shapeOf:
+          name: string -> version: int -> info: SchemaInfo -> Shape
+        
         /// <summary>
         /// The shape of a thing under a name you choose, rather than the one its
         /// <c>Schema</c> carries.
@@ -198,6 +222,40 @@ namespace Etymon
         /// Shape.ofSchema 2 invoiceRaisedSchema
         /// </code></example>
         val ofSchema: version: int -> schema: Schema<'T> -> Shape
+        
+        /// <summary>
+        /// The shape of a named thing and every shape reachable from it: the root
+        /// first, then each nested object and each union case payload, in name
+        /// order, all at the given version.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <c>Shape.ofSchema</c> records a nested object by name and a union by its
+        /// tags, so a change inside either is compared only if the harness lists
+        /// the nested shape by hand, and a nested shape the harness does not list
+        /// is a shape no check covers. This walks the <c>Schema</c> instead, so the
+        /// snapshot carries every shape the payload can hold.
+        /// </para>
+        /// <para>
+        /// A nested object or union is recorded under the object's or union's own
+        /// name, once. A union case whose payload is an object or a union is
+        /// recorded under the payload's own name; a case whose payload is anything
+        /// else recordable is recorded under <c>Union.tag</c> with one field named
+        /// <c>$</c>; a case with no payload records nothing. The walk stops at a
+        /// reference, which is how recursion is broken, and at a raw payload; a
+        /// reference to a recorded union resolves to the union's cases, as the
+        /// resolved schema records them, so the same bytes carry one field type.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="System.ArgumentException">
+        /// The schema has no name, or two different definitions share one name. A
+        /// snapshot matches by name, so one name describes one shape. Name a list
+        /// or scalar root with <c>Schema.named</c>.
+        /// </exception>
+        /// <example><code lang="fsharp">
+        /// ShapeSnapshot.of' (codecs |> List.collect (Shape.ofSchemaDeep 1))
+        /// </code></example>
+        val ofSchemaDeep: version: int -> schema: Schema<'T> -> Shape list
         
         /// <summary>The field of this shape with a given name, if it has one.</summary>
         val tryField: name: string -> shape: Shape -> ShapeField option
@@ -287,9 +345,13 @@ namespace Etymon
         /// The format version of the snapshot file itself, so that a future change
         /// to the format can be recognised rather than guessed at.
         [<Literal>]
-        val FormatVersion: int = 2
+        val FormatVersion: int = 3
         
         val private fieldTypeSchema: Schema<FieldType>
+        
+        /// A recorded default: {} for a field with none, { "value": text } for one
+        /// with a default, the text being the encoded JSON.
+        val private defaultSchema: Schema<string option>
         
         val private fieldSchema: Schema<ShapeField>
         
@@ -583,6 +645,12 @@ namespace Etymon
           measuredAgainst: string ->
             committed: ShapeSnapshot ->
             current: ShapeSnapshot -> Unresolved list
+        
+        /// Every field that refers, at any depth through a list, a map or a
+        /// nullable, to a nested name no shape in the snapshot carries. A nested
+        /// shape nobody recorded is a shape no check covers, and a change inside
+        /// the shape passes unseen.
+        val unrecordedNested: snapshot: ShapeSnapshot -> Unresolved list
         
         /// The items as prose, one paragraph each. Shared because the rendering is
         /// not a policy decision -- only the words being rendered are.

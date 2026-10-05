@@ -27,7 +27,9 @@ module ShapeSnapshots =
     [<Literal>]
     // 2 added elementConstraints on every field. A version-1 file still reads;
     // its fields simply have none recorded.
-    let FormatVersion = 2
+    // 3 added default on every field, for the same reason and with the same
+    // reading of an older file: absent is not recorded, never recorded none.
+    let FormatVersion = 3
 
     let private fieldTypeSchema: Schema<FieldType> =
         Schema.recursive
@@ -105,6 +107,14 @@ module ShapeSnapshots =
                     ]
             )
 
+    /// A recorded default: {} for a field with none, { "value": text } for one
+    /// with a default, the text being the encoded JSON.
+    let private defaultSchema: Schema<string option> =
+        Schema.object "FieldDefault" {
+            let! value = Schema.optional "value" Schema.string id
+            return value
+        }
+
     let private fieldSchema: Schema<ShapeField> =
         Schema.object "ShapeField" {
             let! name = Schema.required "name" Schema.string (fun f -> f.Name)
@@ -125,6 +135,12 @@ module ShapeSnapshots =
                     (Schema.list ConstraintCodec.schema)
                     (fun f -> f.ElementConstraints)
 
+            // Optional for the same reason: a version-2 file never recorded a
+            // default. An object inside rather than a nullable string, because an
+            // optional key read as null is read as absent, and "recorded none"
+            // must survive the trip as recorded.
+            and! default' = Schema.optional "default" defaultSchema (fun f -> f.Default)
+
             return
                 {
                     Name = name
@@ -132,6 +148,7 @@ module ShapeSnapshots =
                     Required = required
                     Constraints = constraints
                     ElementConstraints = elementConstraints
+                    Default = default'
                 }
         }
 
