@@ -56,7 +56,13 @@ in the system.
 ## What it does
 
 ```fsharp
-// A shape, derived from the Schema your codec is built from -- name and all.
+// Every shape a payload can hold, derived from the Schema your codec is built
+// from: the root, each nested object once, each union case payload. A nested
+// shape nobody recorded is a shape no check covers.
+let shapes = codecs |> List.collect (Shape.ofSchemaDeep 1)
+
+// Or one shape at a time, by name, when a harness lists shapes by hand; a
+// nested object name no shape carries is then reported as unresolved.
 // The Schema already says it is an "InvoiceRaised", so you do not say it again
 // and the two cannot disagree.
 let raisedV2 = Shape.ofSchema 2 invoiceRaisedSchema
@@ -106,6 +112,7 @@ has both sides.
 | added a union case | compatible | **breaking** — old code cannot read it |
 | removed a union case | **breaking** — old events carry it | compatible |
 | **removed a shape** | **breaking** — what was written has no reader | **breaking** — old code reads a shape nothing writes |
+| **changed a field's default** | **breaking** — what was written and lacks the field reads differently | compatible |
 | **renamed a required field** (declared) | **breaking** — needs an upcaster | **breaking** — old code reads the old name |
 
 Constraint changes are reported in **both** directions, because this compares
@@ -133,6 +140,40 @@ and already-deployed code reads `total` in what now carries `amount`, so a
 renamed required field breaks both directions and is reported as a rename
 rather than as a removal plus an addition. An optional field renamed breaks
 neither, as an optional field added or removed does.
+
+## Nested shapes and union payloads are shapes too
+
+A field holding a nested object is recorded as the object's name, and a union
+as its tags, so that a shape stays readable and a nested type's own changes are
+reported against the nested type. The nested type therefore has to be in the
+snapshot. `Shape.ofSchemaDeep` walks the `Schema` and returns every shape the
+payload can hold: the root first, then each nested object or union under the
+object's or union's own name, once, then each union case payload, under the
+payload's own name when the payload is an object or a union, or under
+`Union.tag` with one field named `$` when the payload is anything else. A
+case with no payload records nothing, and a reference back to a recorded union
+resolves to the union's cases.
+
+A union-rooted payload records one field named after the tag key; a list or
+scalar root records one field named `$`, the document root, and takes a name
+from `Schema.named`. A payload with no fields to compare used to record none,
+and every change to the payload then passed unseen.
+
+A nested object name no shape in the snapshot carries is reported by
+`Events.check`, `Wire.unresolvedRequests` and `Wire.unresolvedResponses`:
+
+```
+  'Entry' v1 refers to 'Line' in 'lines', and no shape named 'Line' is in the
+  snapshot, so a change inside 'Line' passes unseen. Derive the shapes with
+  Shape.ofSchemaDeep, or add the shape.
+```
+
+A union case payload a hand-kept list misses is not a reference the snapshot
+can see, and is covered only by `Shape.ofSchemaDeep`.
+
+Nested shapes take the root's version. A nested shape re-versioned with the
+root and unchanged reports as stranded until an upcaster is declared under the
+nested name; the declaration says the root's upcasters cover the nested shape.
 
 ## The snapshot must not lag
 

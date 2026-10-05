@@ -18,6 +18,7 @@ let private field name t required : ShapeField =
         Required = required
         Constraints = []
         ElementConstraints = Some []
+        Default = Some None
     }
 
 let private shape name version fields : Shape =
@@ -84,6 +85,28 @@ let tests =
             testList
                 "the lag is reported"
                 [
+                    test "a regenerated file reports nothing unrecorded against the same shapes" {
+                        // The round trip through the file must keep every
+                        // recorded fact, or regeneration never clears the report.
+                        let withDefault =
+                            shape
+                                "Entry"
+                                1
+                                [
+                                    { field "note" text false with
+                                        Default = Some(Some "\"none\"")
+                                    }
+                                    field "id" text true
+                                ]
+
+                        let current = snap [ withDefault; settledV1 ]
+
+                        match ShapeSnapshots.fromJson (ShapeSnapshots.toJson current) with
+                        | Ok committed ->
+                            Expect.isEmpty (Events.unrecorded committed current) "the file says what the code says"
+                        | Error errors -> failtestf "should round-trip: %s" (ValidationErrors.format errors)
+                    }
+
                     test "an identical pair has nothing unrecorded" {
                         let snapshot = snap [ raisedV1; settledV1 ]
                         Expect.isEmpty (Events.unrecorded snapshot snapshot) "nothing to regenerate"
@@ -265,6 +288,54 @@ let tests =
                             (messages problems
                              |> List.exists (fun m -> m.Contains "bodies already sent" && m.Contains "Nothing reads v1"))
                             "in the wire policy's words"
+                    }
+                ]
+
+            testList
+                "a nested name with no shape is unresolved"
+                [
+                    let lines =
+                        shape "Entry" 1 [ field "lines" (FieldType.Sequence(FieldType.Nested "Line")) true ]
+
+                    let line = shape "Line" 1 [ field "sku" text true ]
+
+                    test "reported under the event policy, through a list" {
+                        match Events.check [] [] (snap [ lines ]) (snap [ lines ]) with
+                        | [ problem ] ->
+                            Expect.equal problem.Shape "Entry" "the shape that refers"
+                            Expect.stringContains problem.Message "refers to 'Line' in 'lines'" "the field and the name"
+                            Expect.stringContains problem.Message "Shape.ofSchemaDeep" "and the remedy"
+                        | other -> failtestf "expected one report, got %A" other
+                    }
+
+                    test "reported under the wire policy, through a nullable, on both sides" {
+                        let maybe =
+                            shape "Dto" 1 [ field "line" (FieldType.Nullable(FieldType.Nested "Line")) false ]
+
+                        Expect.isNonEmpty (Wire.unresolvedRequests [] [] (snap [ maybe ]) (snap [ maybe ])) "requests"
+                        Expect.isNonEmpty (Wire.unresolvedResponses [] (snap [ maybe ]) (snap [ maybe ])) "responses"
+                    }
+
+                    test "reported through a map, and through a list of nullables" {
+                        let byKey =
+                            shape "ByKey" 1 [ field "lines" (FieldType.Mapping(FieldType.Nested "Line")) true ]
+
+                        let sparse =
+                            shape
+                                "Sparse"
+                                1
+                                [
+                                    field "lines" (FieldType.Sequence(FieldType.Nullable(FieldType.Nested "Line"))) true
+                                ]
+
+                        for s in [ byKey; sparse ] do
+                            match Events.check [] [] (snap [ s ]) (snap [ s ]) with
+                            | [ problem ] -> Expect.stringContains problem.Message "refers to 'Line' in 'lines'" s.Name
+                            | other -> failtestf "expected one report for %s, got %A" s.Name other
+                    }
+
+                    test "nothing is reported when the shape is present" {
+                        Expect.isEmpty (Events.check [] [] (snap [ lines; line ]) (snap [ lines; line ])) "covered"
                     }
                 ]
 

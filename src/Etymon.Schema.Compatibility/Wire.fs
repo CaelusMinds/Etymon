@@ -195,6 +195,7 @@ module Wire =
         Detect.renameAmbiguities "whether bodies already sent can be read" renames before after
         @ Detect.strandedVersionsToward "bodies already sent" upcasters after (ShapeSnapshot.extend before after)
         @ unrecorded before after
+        @ Detect.unrecordedNested after
 
     /// <summary>
     /// Renames on the response side, which must be declared or confirmed
@@ -214,6 +215,7 @@ module Wire =
     let unresolvedResponses (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) =
         Detect.renameAmbiguities "whether clients already written can read what you send" renames before after
         @ unrecorded before after
+        @ Detect.unrecordedNested after
 
     /// <summary>The unresolved request items as prose, one paragraph each.</summary>
     /// <remarks>

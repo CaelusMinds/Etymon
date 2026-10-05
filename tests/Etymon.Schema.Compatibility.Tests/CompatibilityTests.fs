@@ -20,6 +20,7 @@ let private field name t required constraints : ShapeField =
         Required = required
         Constraints = constraints
         ElementConstraints = Some []
+        Default = Some None
     }
 
 let private shape version fields : Shape =
@@ -513,6 +514,45 @@ let tests =
                         Expect.isNonEmpty
                             (changesFor (shape 1 [ roles (Some []) ]) recorded)
                             "but recorded-and-empty against recorded rules is a real change"
+                    }
+                ]
+
+            testList
+                "defaults"
+                [
+                    test "a changed default breaks backward" {
+                        // What was already written and lacks the field reads as
+                        // the default, so a new default changes how history reads.
+                        let note value =
+                            { field "note" text false [] with
+                                Default = Some(Some value)
+                            }
+
+                        match changesFor (shape 1 [ note "\"none\"" ]) (shape 2 [ note "\"n/a\"" ]) with
+                        | [ change ] ->
+                            Expect.stringContains change.Description "the default of 'note' changed" "named"
+
+                            Expect.equal
+                                (change.Breaks |> List.map fst)
+                                [ Direction.Backward ]
+                                "history reads differently"
+                        | other -> failtestf "expected one change, got %A" other
+                    }
+
+                    test "a default a version-2 file never recorded is not compared" {
+                        let unrecorded =
+                            { field "note" text false [] with
+                                Default = None
+                            }
+
+                        let recorded =
+                            { field "note" text false [] with
+                                Default = Some(Some "\"none\"")
+                            }
+
+                        Expect.isEmpty
+                            (changesFor (shape 1 [ unrecorded ]) (shape 1 [ recorded ]))
+                            "nothing to compare against"
                     }
                 ]
 

@@ -1,6 +1,7 @@
 namespace Etymon
 
 open System
+open System.Text.Json.Nodes
 
 /// <summary>
 /// The type of one field, reduced to what compatibility depends on.
@@ -63,6 +64,12 @@ type ShapeField =
         /// nothing can be compared against it, so nothing is. <c>Some []</c>
         /// is recorded, and empty.
         ElementConstraints: Constraint list option
+        /// The field's default, as the encoded JSON text, where the field has
+        /// one. The outer option is whether the writer recorded a default at
+        /// all: a snapshot written before the key existed reads as None and is
+        /// never compared, as element rules are. The inner option is whether
+        /// the field has a default; a JSON null default is Some "null".
+        Default: string option option
     }
 
 /// <summary>
@@ -154,6 +161,62 @@ module Shape =
         | SMap inner -> SchemaInfo.constraints inner
         | _ -> []
 
+    /// A default as the text a snapshot records: the encoded JSON, with a JSON
+    /// null default spelled "null" because JsonNode has no other value for it.
+    let private defaultText (node: JsonNode option) : string option =
+        match node with
+        | None -> None
+        | Some null -> Some "null"
+        | Some node -> Some(node.ToJsonString())
+
+    let private fieldOf (field: FieldInfo) : ShapeField =
+        {
+            Name = field.Name
+            Type = typeOf field.Schema
+            Required = field.Required
+            Constraints = SchemaInfo.constraints field.Schema
+            ElementConstraints = Some(elementConstraints field.Schema)
+            Default = Some(defaultText field.Default)
+        }
+
+    /// The fields of a payload. An object's fields are the object's fields. A
+    /// union is one field, named after the tag key, holding the union's cases.
+    /// Anything else is one field named "$", the document root, holding the
+    /// payload's type and rules; a payload with no fields to compare used to
+    /// record none, and every change to the payload then passed unseen.
+    let private fieldsOf (info: SchemaInfo) : ShapeField list =
+        match SchemaInfo.strip info with
+        | SObject(_, fields) -> fields |> List.map fieldOf
+        | SUnion(_, tag, _) ->
+            [
+                {
+                    Name = tag
+                    Type = typeOf info
+                    Required = true
+                    Constraints = []
+                    ElementConstraints = Some []
+                    Default = Some None
+                }
+            ]
+        | other ->
+            [
+                {
+                    Name = "$"
+                    Type = typeOf other
+                    Required = true
+                    Constraints = SchemaInfo.constraints info
+                    ElementConstraints = Some(elementConstraints info)
+                    Default = Some None
+                }
+            ]
+
+    let private shapeOf (name: string) (version: int) (info: SchemaInfo) : Shape =
+        {
+            Name = name
+            Version = version
+            Fields = fieldsOf info
+        }
+
     /// <summary>
     /// The shape of a thing under a name you choose, rather than the one its
     /// <c>Schema</c> carries.
@@ -172,31 +235,7 @@ module Shape =
     /// <example><code lang="fsharp">
     /// Shape.ofSchemaNamed "LegacyInvoice" 2 invoiceRaisedSchema
     /// </code></example>
-    let ofSchemaNamed (name: string) (version: int) (schema: Schema<'T>) : Shape =
-        let fields =
-            match SchemaInfo.strip schema.Info with
-            | SObject(_, fields) ->
-                fields
-                |> List.map (fun field ->
-                    {
-                        Name = field.Name
-                        Type = typeOf field.Schema
-                        Required = field.Required
-                        Constraints = SchemaInfo.constraints field.Schema
-                        ElementConstraints = Some(elementConstraints field.Schema)
-                    }
-                )
-            | _ ->
-                // Something that is not an object has no fields to compare, and
-                // every change to it is a change to the whole payload. Saying so
-                // is better than pretending there is structure to diff.
-                []
-
-        {
-            Name = name
-            Version = version
-            Fields = fields
-        }
+    let ofSchemaNamed (name: string) (version: int) (schema: Schema<'T>) : Shape = shapeOf name version schema.Info
 
     /// <summary>
     /// The shape of a named thing, derived from the <c>Schema</c> that describes
@@ -238,6 +277,136 @@ module Shape =
                 "schema"
                 "This schema has no name, so a shape cannot take one from it. Name it with Schema.object, or give the name deliberately with Shape.ofSchemaNamed."
 
+    /// <summary>
+    /// The shape of a named thing and every shape reachable from it: the root
+    /// first, then each nested object and each union case payload, in name
+    /// order, all at the given version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Shape.ofSchema</c> records a nested object by name and a union by its
+    /// tags, so a change inside either is compared only if the harness lists
+    /// the nested shape by hand, and a nested shape the harness does not list
+    /// is a shape no check covers. This walks the <c>Schema</c> instead, so the
+    /// snapshot carries every shape the payload can hold.
+    /// </para>
+    /// <para>
+    /// A nested object or union is recorded under the object's or union's own
+    /// name, once. A union case whose payload is an object or a union is
+    /// recorded under the payload's own name; a case whose payload is anything
+    /// else recordable is recorded under <c>Union.tag</c> with one field named
+    /// <c>$</c>; a case with no payload records nothing. The walk stops at a
+    /// reference, which is how recursion is broken, and at a raw payload; a
+    /// reference to a recorded union resolves to the union's cases, as the
+    /// resolved schema records them, so the same bytes carry one field type.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="System.ArgumentException">
+    /// The schema has no name, or two different definitions share one name. A
+    /// snapshot matches by name, so one name describes one shape. Name a list
+    /// or scalar root with <c>Schema.named</c>.
+    /// </exception>
+    /// <example><code lang="fsharp">
+    /// ShapeSnapshot.of' (codecs |> List.collect (Shape.ofSchemaDeep 1))
+    /// </code></example>
+    let ofSchemaDeep (version: int) (schema: Schema<'T>) : Shape list =
+        let rootName =
+            match SchemaInfo.name schema.Info with
+            | Some name -> name
+            | None ->
+                invalidArg
+                    "schema"
+                    "This schema has no name, so a shape cannot take one from it. Name it with Schema.object, or name a list or scalar root with Schema.named."
+
+        let mutable found: Map<string, Shape> = Map.empty
+        // The unions recorded, by name, with the Choice type a field holding
+        // the union carries; a reference to the union resolves to the same.
+        let mutable unions: Map<string, FieldType> = Map.empty
+
+        // Record a shape under a name; the first definition wins, a second
+        // identical one is the same shape reached again, and a different one is
+        // refused. Returns whether the name was new, so children are walked once.
+        let record (name: string) (info: SchemaInfo) =
+            let shape = shapeOf name version info
+
+            match Map.tryFind name found with
+            | Some existing when existing.Fields = shape.Fields -> false
+            | Some _ ->
+                invalidArg
+                    "schema"
+                    $"Two different definitions share the name '%s{name}'. A snapshot matches by name, so one name describes one shape; name one of the two differently."
+            | None ->
+                found <- Map.add name shape found
+                true
+
+        let rec walk (info: SchemaInfo) =
+            match SchemaInfo.strip info with
+            | SObject(name, fields) ->
+                if record name info then
+                    fields |> List.iter (fun f -> walk f.Schema)
+            | SUnion(name, _, cases) ->
+                // Recorded under the union's own name, as an object is, so a
+                // reference back to the union from a case payload resolves.
+                if record name info then
+                    unions <- Map.add name (typeOf info) unions
+
+                    cases
+                    |> List.iter (fun (tag, payload) ->
+                        match SchemaInfo.strip payload with
+                        | SPrim PrimKind.Raw -> ()
+                        | SObject _
+                        | SUnion _ -> walk payload
+                        | other ->
+                            if record $"%s{name}.%s{tag}" payload then
+                                walk other
+                    )
+            | SNullable inner
+            | SList inner
+            | SMap inner -> walk inner
+            | SPrim _
+            | SRef _
+            | SAnnotated _ -> ()
+
+        match SchemaInfo.strip schema.Info with
+        | SObject _
+        | SUnion _ -> walk schema.Info
+        | _ ->
+            record rootName schema.Info |> ignore
+            walk schema.Info
+
+        // A reference is recorded as Nested name because the walk cannot see
+        // through a reference; once every union is recorded, a reference to a
+        // union becomes the union's Choice, which is what a field holding the
+        // resolved union records.
+        let rec resolve (fieldType: FieldType) =
+            match fieldType with
+            | FieldType.Nested name ->
+                match Map.tryFind name unions with
+                | Some choice -> choice
+                | None -> fieldType
+            | FieldType.Sequence inner -> FieldType.Sequence(resolve inner)
+            | FieldType.Mapping inner -> FieldType.Mapping(resolve inner)
+            | FieldType.Nullable inner -> FieldType.Nullable(resolve inner)
+            | FieldType.Scalar _
+            | FieldType.Choice _
+            | FieldType.Unknown -> fieldType
+
+        let resolved (shape: Shape) =
+            { shape with
+                Fields = shape.Fields |> List.map (fun f -> { f with Type = resolve f.Type })
+            }
+
+        let root = resolved (Map.find rootName found)
+
+        let rest =
+            found
+            |> Map.toList
+            |> List.filter (fun (name, _) -> name <> rootName)
+            |> List.map (snd >> resolved)
+            |> List.sortBy (fun s -> s.Name)
+
+        root :: rest
+
     /// <summary>The field of this shape with a given name, if it has one.</summary>
     let tryField (name: string) (shape: Shape) =
         shape.Fields
@@ -260,8 +429,24 @@ module ShapeSnapshot =
     /// ShapeSnapshot.of' [ raisedV1; raisedV2; settledV1 ]
     /// </code></example>
     let of' (shapes: Shape list) : ShapeSnapshot =
+        // Several roots reaching one nested object give the object once per
+        // root. Identical copies collapse; two different shapes under one name
+        // and version would be compared against each other forever, so the
+        // pair is refused with both names in hand.
+        let distinct =
+            shapes
+            |> List.groupBy (fun s -> s.Name, s.Version)
+            |> List.map (fun ((name, version), group) ->
+                match List.distinct group with
+                | [ one ] -> one
+                | _ ->
+                    invalidArg
+                        "shapes"
+                        $"'%s{name}' v%d{version} is given twice with different fields. A snapshot matches by name and version, so one pair describes one shape."
+            )
+
         {
-            Shapes = shapes |> List.sortBy (fun s -> s.Name, s.Version)
+            Shapes = distinct |> List.sortBy (fun s -> s.Name, s.Version)
         }
 
     /// <summary>Every version recorded under one name, in order.</summary>

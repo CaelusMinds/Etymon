@@ -318,6 +318,21 @@ module Compatibility =
                                     ]
                         | _ -> ()
 
+                        // Compared only when both sides recorded one, as element
+                        // rules are: a version-2 file never recorded defaults.
+                        match beforeField.Default, afterField.Default with
+                        | Some before, Some after ->
+                            if before <> after then
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"the default of '%s{afterField.Name}' changed"
+                                    [
+                                        Direction.Backward,
+                                        $"what was already written and lacks '%s{afterField.Name}' now reads as a different value."
+                                    ]
+                        | _ -> ()
+
                         match beforeField.Type, afterField.Type with
                         | FieldType.Choice(_, beforeCases), FieldType.Choice(_, afterCases) ->
                             let gained = afterCases |> List.except beforeCases
