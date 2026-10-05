@@ -211,7 +211,8 @@ module Compatibility =
                     // the wrong verdict in each case.
                     let sameUnionDifferentCases =
                         match beforeField.Type, afterField.Type with
-                        | FieldType.Choice(beforeName, _), FieldType.Choice(afterName, _) -> beforeName = afterName
+                        | FieldType.Choice(beforeName, _, _), FieldType.Choice(afterName, _, _) ->
+                            beforeName = afterName
                         | _ -> false
 
                     // A type change that only adds null, at any depth, is a
@@ -230,10 +231,41 @@ module Compatibility =
                             | _ -> false
                         )
 
+                    // A union's wire shape is compared only when both sides
+                    // recorded one, at any depth: a snapshot older than format
+                    // 4 never did, and a union inside a list, a map or a
+                    // nullable must not read as a changed type on the first
+                    // comparison after the upgrade.
+                    let rec recordsEncoding (fieldType: FieldType) =
+                        match fieldType with
+                        | FieldType.Choice(_, _, encoding) -> encoding.IsSome
+                        | FieldType.Nullable inner
+                        | FieldType.Sequence inner
+                        | FieldType.Mapping inner -> recordsEncoding inner
+                        | FieldType.Scalar _
+                        | FieldType.Nested _
+                        | FieldType.Unknown -> true
+
+                    let rec withoutEncoding (fieldType: FieldType) =
+                        match fieldType with
+                        | FieldType.Choice(name, cases, _) -> FieldType.Choice(name, cases, None)
+                        | FieldType.Nullable inner -> FieldType.Nullable(withoutEncoding inner)
+                        | FieldType.Sequence inner -> FieldType.Sequence(withoutEncoding inner)
+                        | FieldType.Mapping inner -> FieldType.Mapping(withoutEncoding inner)
+                        | FieldType.Scalar _
+                        | FieldType.Nested _
+                        | FieldType.Unknown -> fieldType
+
+                    let beforeType, afterType =
+                        if recordsEncoding beforeField.Type && recordsEncoding afterField.Type then
+                            beforeField.Type, afterField.Type
+                        else
+                            withoutEncoding beforeField.Type, withoutEncoding afterField.Type
+
                     renamed
                     @ [
-                        if beforeField.Type <> afterField.Type && not sameUnionDifferentCases then
-                            if widensByNull beforeField.Type afterField.Type then
+                        if beforeType <> afterType && not sameUnionDifferentCases then
+                            if widensByNull beforeType afterType then
                                 change
                                     event
                                     (Some afterField.Name)
@@ -242,7 +274,7 @@ module Compatibility =
                                         Direction.Forward,
                                         "already-deployed code does not expect null here, and what is written now may carry it."
                                     ]
-                            elif widensByNull afterField.Type beforeField.Type then
+                            elif widensByNull afterType beforeType then
                                 change
                                     event
                                     (Some afterField.Name)
@@ -334,7 +366,25 @@ module Compatibility =
                         | _ -> ()
 
                         match beforeField.Type, afterField.Type with
-                        | FieldType.Choice(_, beforeCases), FieldType.Choice(_, afterCases) ->
+                        | FieldType.Choice(_, beforeCases, beforeEncoding),
+                          FieldType.Choice(_, afterCases, afterEncoding) ->
+                            // Compared only when both sides recorded one: a
+                            // snapshot older than format 4 never did. A changed
+                            // shape moves the tag or the payload keys, so both
+                            // directions break.
+                            match beforeEncoding, afterEncoding with
+                            | Some before, Some after when before <> after ->
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"the wire shape of '%s{afterField.Name}' changed"
+                                    [
+                                        Direction.Backward,
+                                        "what was already written carries the old tag and payload keys."
+                                        Direction.Forward, "already-deployed code reads the old tag and payload keys."
+                                    ]
+                            | _ -> ()
+
                             let gained = afterCases |> List.except beforeCases
                             let lost = beforeCases |> List.except afterCases
 

@@ -126,13 +126,13 @@ let tests =
 
                     test "an added union case breaks forward" {
                         let before =
-                            shape 1 [ field "state" (FieldType.Choice("State", [ "draft"; "sent" ])) true [] ]
+                            shape 1 [ field "state" (FieldType.Choice("State", [ "draft"; "sent" ], None)) true [] ]
 
                         let after =
                             shape
                                 2
                                 [
-                                    field "state" (FieldType.Choice("State", [ "draft"; "sent"; "void" ])) true []
+                                    field "state" (FieldType.Choice("State", [ "draft"; "sent"; "void" ], None)) true []
                                 ]
 
                         let changes = changesFor before after
@@ -146,16 +146,105 @@ let tests =
                             shape
                                 1
                                 [
-                                    field "state" (FieldType.Choice("State", [ "draft"; "sent"; "void" ])) true []
+                                    field "state" (FieldType.Choice("State", [ "draft"; "sent"; "void" ], None)) true []
                                 ]
 
                         let after =
-                            shape 2 [ field "state" (FieldType.Choice("State", [ "draft"; "sent" ])) true [] ]
+                            shape 2 [ field "state" (FieldType.Choice("State", [ "draft"; "sent" ], None)) true [] ]
 
                         let changes = changesFor before after
 
                         Expect.isTrue (breaksBackward changes) "events already written carry 'void'"
                         Expect.isFalse (breaksForward changes) "old code still handles everything new code writes"
+                    }
+
+                    test "a changed wire shape breaks both directions" {
+                        let before =
+                            shape
+                                1
+                                [
+                                    field
+                                        "source"
+                                        (FieldType.Choice("Source", [ "manual" ], Some "adjacent:kind:value"))
+                                        true
+                                        []
+                                ]
+
+                        let after =
+                            shape
+                                2
+                                [
+                                    field
+                                        "source"
+                                        (FieldType.Choice("Source", [ "manual" ], Some "internal:type"))
+                                        true
+                                        []
+                                ]
+
+                        match changesFor before after with
+                        | [ change ] ->
+                            Expect.stringContains change.Description "the wire shape of 'source' changed" "named"
+
+                            Expect.equal
+                                (change.Breaks |> List.map fst |> List.sort)
+                                [ Direction.Backward; Direction.Forward ]
+                                "old events carry the old keys; old code reads the old keys"
+                        | other -> failtestf "expected one change, got %A" other
+                    }
+
+                    test "a wire shape a version-3 file never recorded is not compared" {
+                        let before =
+                            shape 1 [ field "source" (FieldType.Choice("Source", [ "manual" ], None)) true [] ]
+
+                        let after =
+                            shape
+                                1
+                                [
+                                    field
+                                        "source"
+                                        (FieldType.Choice("Source", [ "manual" ], Some "internal:type"))
+                                        true
+                                        []
+                                ]
+
+                        Expect.isEmpty (changesFor before after) "nothing to compare against"
+                    }
+
+                    test "a union inside a list, a map or a nullable read from an older file breaks nothing" {
+                        // The committed file predates format 4 and recorded no
+                        // wire shape; the current shape records one. The
+                        // comparison must not read the pair as a changed type.
+                        let unrecorded = FieldType.Choice("State", [ "draft" ], None)
+                        let recorded = FieldType.Choice("State", [ "draft" ], Some "adjacent:kind:value")
+
+                        for wrap in
+                            [
+                                FieldType.Sequence
+                                FieldType.Mapping
+                                FieldType.Nullable
+                                (fun t -> FieldType.Sequence(FieldType.Nullable t))
+                            ] do
+                            Expect.isEmpty
+                                (changesFor
+                                    (shape 1 [ field "states" (wrap unrecorded) true [] ])
+                                    (shape 1 [ field "states" (wrap recorded) true [] ]))
+                                "nothing to compare against"
+
+                        Expect.isNonEmpty
+                            (changesFor
+                                (shape 1 [ field "states" (FieldType.Sequence recorded) true [] ])
+                                (shape
+                                    1
+                                    [
+                                        field
+                                            "states"
+                                            (FieldType.Sequence(
+                                                FieldType.Choice("State", [ "draft" ], Some "internal:type")
+                                            ))
+                                            true
+                                            []
+                                    ]))
+                            "but two recorded shapes that differ are a changed type"
                     }
 
                     test "no change is no verdict" {

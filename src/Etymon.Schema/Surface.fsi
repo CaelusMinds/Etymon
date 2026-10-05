@@ -133,7 +133,8 @@ namespace Etymon
         
         /// A discriminated union, distinguished by the value of a tag field.
         | SUnion of
-          name: string * tag: string * cases: (string * SchemaInfo) list
+          name: string * shape: UnionShape *
+          cases: (string * SchemaInfo option) list
         
         /// A reference to a named schema, which is how recursion is represented.
         | SRef of name: string
@@ -166,6 +167,25 @@ namespace Etymon
           /// Whether the field is a secret.
           Sensitive: bool
         }
+    
+    /// <summary>How a union is written on the wire.</summary>
+    /// <remarks>
+    /// The shape is part of the description because every derivation needs the
+    /// shape: the codec to write and read the bytes, the OpenAPI document and the
+    /// TypeScript output to say where the payload sits, the snapshot to see a
+    /// change of shape as a change of what was written.
+    /// </remarks>
+    and [<RequireQualifiedAccess>] UnionShape =
+        
+        /// The tag under one key and the payload under another:
+        /// <c>{ "kind": "circle", "value": 1 }</c>. Works for any payload, and the
+        /// tag can never collide with a payload field.
+        | AdjacentTag of tag: string * payloadKey: string
+        
+        /// The tag written first and the payload's own fields beside the tag:
+        /// <c>{ "type": "contractor_bill", "billNumber": "KT-32" }</c>. Every case
+        /// carries an object payload or none.
+        | InternalTag of tag: string
     
     /// Inspecting a <see cref="T:Etymon.SchemaInfo"/>.
     [<RequireQualifiedAccess>]
@@ -304,6 +324,11 @@ namespace Etymon
         }
     
     /// <summary>One case of a discriminated union.</summary>
+    /// <remarks>
+    /// A case knows the payload and nothing about where the payload sits: the
+    /// union's <see cref="T:Etymon.UnionShape"/> decides that, so one case serves
+    /// an adjacent tag and an internal tag alike.
+    /// </remarks>
     [<NoEquality; NoComparison>]
     type CaseSchema<'T> =
         {
@@ -314,11 +339,15 @@ namespace Etymon
           /// The shape of the case's payload, if it has one.
           Payload: SchemaInfo option
           
-          /// Writes the payload when the value is this case, and reports whether it was.
-          TryWrite: (System.Text.Json.Utf8JsonWriter -> string -> 'T -> bool)
+          /// Whether a value is this case.
+          IsCase: ('T -> bool)
           
-          /// Reads a value of this case.
-          Read:
+          /// Writes the payload alone, for a value that is this case. Writes
+          /// nothing for a case without a payload.
+          WritePayload: (System.Text.Json.Utf8JsonWriter -> 'T -> unit)
+          
+          /// Reads a value of this case from the payload alone.
+          ReadPayload:
             (DecodeMode ->
                Path -> System.Text.Json.JsonElement -> Validation<'T>)
         }
@@ -846,10 +875,8 @@ namespace Etymon
         /// One case of a union, with a payload.
         /// </summary>
         /// <remarks>
-        /// Cases are written adjacently tagged — <c>{ "kind": "circle", "value": … }</c>
-        /// — rather than by merging the payload's fields into the outer object. That
-        /// works whatever shape the payload has, including a bare number or a list,
-        /// and it means the tag can never collide with a payload field.
+        /// Where the payload sits is the union's decision, not the case's: see
+        /// <c>Schema.union</c> and <c>Schema.unionWith</c>.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// Schema.case "circle" Schema.float Circle (function Circle r -> ValueSome r | _ -> ValueNone)
@@ -868,12 +895,50 @@ namespace Etymon
           tag: string -> value: 'T -> isCase: ('T -> bool) -> CaseSchema<'T>
         
         /// <summary>
-        /// A discriminated union, distinguished by the value of a tag field.
+        /// A discriminated union, written in the given shape.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// The tag is written first under either shape. An internal tag merges the
+        /// payload's fields with the tag, so every case of an internally tagged
+        /// union carries an object payload or none, and anything else is refused
+        /// here, when the schema is built, rather than on the first write.
+        /// </para>
+        /// <para>
         /// Encoding raises if no case matches the value. That is deliberate: it means
         /// the destructors do not cover the type, which is a bug in the schema rather
         /// than an expected outcome, and no caller could sensibly handle it.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="System.ArgumentException">
+        /// A case of an internally tagged union carries a payload that is not an
+        /// object or declares a field named like the tag key, or an adjacent shape
+        /// names one key for the tag and the payload. A payload held by reference
+        /// (<c>Schema.recursive</c>) cannot be seen when the union is built and is
+        /// checked on the first write, which fails naming the union and the case.
+        /// </exception>
+        /// <example><code lang="fsharp">
+        /// let sourceSchema =
+        ///     Schema.unionWith (UnionShape.InternalTag "type") "Source" [
+        ///         Schema.caseUnit "manual" Manual (function Manual -> true | _ -> false)
+        ///         Schema.case "contractor_bill" billSchema ContractorBill (function ContractorBill b -> ValueSome b | _ -> ValueNone)
+        ///     ]
+        /// Schema.toJson sourceSchema (ContractorBill { Number = "KT-32" })
+        /// // """{"type":"contractor_bill","billNumber":"KT-32"}"""
+        /// </code></example>
+        val unionWith:
+          shape: UnionShape ->
+            name: string -> cases: CaseSchema<'T> list -> Schema<'T>
+        
+        /// <summary>
+        /// A discriminated union, adjacently tagged: the tag under the given key and
+        /// the payload under <c>value</c>.
+        /// </summary>
+        /// <remarks>
+        /// <c>Schema.unionWith (UnionShape.AdjacentTag (tag, "value"))</c>, the shape
+        /// every union has had. Works whatever shape the payload has, including a
+        /// bare number or a list, and the tag can never collide with a payload
+        /// field. For another shape, see <c>Schema.unionWith</c>.
         /// </remarks>
         /// <example><code lang="fsharp">
         /// let shapeSchema =

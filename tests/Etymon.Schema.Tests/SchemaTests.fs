@@ -14,6 +14,10 @@ let private roundTrips (schema: Schema<'T>) (value: 'T) =
     | Ok decoded -> decoded = value
     | Error _ -> false
 
+type private Nested =
+    | Deeper of Nested list
+    | Leaf
+
 let tests =
     testList
         "Schema"
@@ -349,6 +353,272 @@ let tests =
                             "the rule is data, not only behaviour"
 
                         Expect.isTrue (Validation.isError (Schema.fromJson Person.ageSchema "200")) "and is enforced"
+                    }
+                ]
+
+            testList
+                "internally tagged unions"
+                [
+                    test "the tag is written first and the payload's fields beside it" {
+                        Expect.equal
+                            (Schema.toJson Source.schema (ContractorBill { BillNumber = "KT-32" }))
+                            """{"type":"contractor_bill","billNumber":"KT-32"}"""
+                            "merged, tag first"
+                    }
+
+                    test "a case with no payload is the tag alone" {
+                        Expect.equal (Schema.toJson Source.schema Manual) """{"type":"manual"}""" "nothing else"
+                    }
+
+                    test "every case round-trips under strict decoding" {
+                        Expect.isTrue (roundTrips Source.schema Manual) "manual"
+
+                        Expect.isTrue
+                            (roundTrips Source.schema (ContractorBill { BillNumber = "KT-32" }))
+                            "contractor bill"
+
+                        Expect.isTrue (roundTrips Source.schema (Reversal(Guid.NewGuid()))) "reversal"
+                    }
+
+                    test "a missing tag is reported at the tag's path" {
+                        match Schema.fromJson Source.schema """{"billNumber":"KT-32"}""" with
+                        | Ok _ -> failtest "no tag should not read"
+                        | Error errors -> Expect.stringContains (ValidationErrors.format errors) "type" "the tag's path"
+                    }
+
+                    test "an unknown tag is reported with the known ones" {
+                        match Schema.fromJson Source.schema """{"type":"bank_feed"}""" with
+                        | Ok _ -> failtest "an unknown case should not read"
+                        | Error errors ->
+                            Expect.stringContains (ValidationErrors.format errors) "contractor_bill" "the cases"
+                    }
+
+                    test "a payload field that fails is reported at the field's own path" {
+                        match Schema.fromJson Source.schema """{"type":"reversal","reverses":"not-a-guid"}""" with
+                        | Ok _ -> failtest "a bad payload should not read"
+                        | Error errors -> Expect.stringContains (ValidationErrors.format errors) "reverses" "the field"
+                    }
+
+                    test "a two-field payload keeps the payload's field order beside the tag" {
+                        Expect.equal
+                            (Schema.toJson
+                                Source.schema
+                                (Imported
+                                    {
+                                        System = "xero"
+                                        ExternalId = "INV-9"
+                                    }))
+                            """{"type":"imported","system":"xero","externalId":"INV-9"}"""
+                            "tag first, then the fields as declared"
+
+                        Expect.isTrue
+                            (roundTrips
+                                Source.schema
+                                (Imported
+                                    {
+                                        System = "xero"
+                                        ExternalId = "INV-9"
+                                    }))
+                            "and reads back"
+                    }
+
+                    test "a payload field named like the tag is refused when the union is built" {
+                        let typed =
+                            Schema.object "Typed" {
+                                let! kind = Schema.required "type" Schema.string id
+                                return kind
+                            }
+
+                        let message =
+                            try
+                                Schema.unionWith
+                                    (UnionShape.InternalTag "type")
+                                    "Bad"
+                                    [
+                                        Schema.case
+                                            "typed"
+                                            typed
+                                            Choice1Of2
+                                            (function
+                                            | Choice1Of2 t -> ValueSome t
+                                            | _ -> ValueNone
+                                            )
+                                        Schema.caseUnit
+                                            "none"
+                                            (Choice2Of2())
+                                            (function
+                                            | Choice2Of2() -> true
+                                            | _ -> false
+                                            )
+                                    ]
+                                |> ignore
+
+                                None
+                            with :? ArgumentException as e ->
+                                Some e.Message
+
+                        match message with
+                        | Some text ->
+                            Expect.stringContains text "'typed'" "names the case"
+                            Expect.stringContains text "'type'" "and the field"
+                        | None -> failtest "a field named like the tag was accepted"
+                    }
+
+                    test "an adjacent shape with one key for the tag and the payload is refused" {
+                        let message =
+                            try
+                                Schema.unionWith
+                                    (UnionShape.AdjacentTag("kind", "kind"))
+                                    "Bad"
+                                    [
+                                        Schema.case
+                                            "number"
+                                            Schema.int
+                                            Choice1Of2
+                                            (function
+                                            | Choice1Of2 n -> ValueSome n
+                                            | _ -> ValueNone
+                                            )
+                                        Schema.case
+                                            "text"
+                                            Schema.string
+                                            Choice2Of2
+                                            (function
+                                            | Choice2Of2 s -> ValueSome s
+                                            | _ -> ValueNone
+                                            )
+                                    ]
+                                |> ignore
+
+                                None
+                            with :? ArgumentException as e ->
+                                Some e.Message
+
+                        match message with
+                        | Some text -> Expect.stringContains text "'kind'" "names the key"
+                        | None -> failtest "one key for both was accepted"
+                    }
+
+                    test "a reference payload that is not an object fails on the first write, by name" {
+                        // Schema.recursive hands a case the reference before the
+                        // body exists, so the union cannot see the body when
+                        // built; here the body is a list.
+                        let schema =
+                            Schema.recursive
+                                "Nest"
+                                (fun self ->
+                                    Schema.list (
+                                        Schema.unionWith
+                                            (UnionShape.InternalTag "type")
+                                            "Nested"
+                                            [
+                                                Schema.case
+                                                    "deeper"
+                                                    self
+                                                    Deeper
+                                                    (function
+                                                    | Deeper inner -> ValueSome inner
+                                                    | _ -> ValueNone
+                                                    )
+                                                Schema.caseUnit
+                                                    "leaf"
+                                                    Leaf
+                                                    (function
+                                                    | Leaf -> true
+                                                    | _ -> false
+                                                    )
+                                            ]
+                                    )
+                                )
+
+                        let message =
+                            try
+                                Schema.toJson schema [ Deeper [ Leaf ] ] |> ignore
+                                None
+                            with e ->
+                                Some e.Message
+
+                        match message with
+                        | Some text ->
+                            Expect.stringContains text "'deeper'" "names the case"
+                            Expect.stringContains text "'Nested'" "and the union"
+                        | None -> failtest "a list payload under an internal tag was written"
+                    }
+
+                    test "a non-object payload is refused when the union is built" {
+                        let message =
+                            try
+                                Schema.unionWith
+                                    (UnionShape.InternalTag "type")
+                                    "Bad"
+                                    [
+                                        Schema.case
+                                            "number"
+                                            Schema.int
+                                            Choice1Of2
+                                            (function
+                                            | Choice1Of2 n -> ValueSome n
+                                            | _ -> ValueNone
+                                            )
+                                        Schema.case
+                                            "text"
+                                            Schema.string
+                                            Choice2Of2
+                                            (function
+                                            | Choice2Of2 s -> ValueSome s
+                                            | _ -> ValueNone
+                                            )
+                                    ]
+                                |> ignore
+
+                                None
+                            with :? ArgumentException as e ->
+                                Some e.Message
+
+                        match message with
+                        | Some text -> Expect.stringContains text "'number'" "names the case"
+                        | None -> failtest "a scalar payload under an internal tag was accepted"
+                    }
+
+                    test "an adjacent union can name the payload key" {
+                        let schema =
+                            Schema.unionWith
+                                (UnionShape.AdjacentTag("kind", "payload"))
+                                "Named"
+                                [
+                                    Schema.case
+                                        "number"
+                                        Schema.int
+                                        Choice1Of2
+                                        (function
+                                        | Choice1Of2 n -> ValueSome n
+                                        | _ -> ValueNone
+                                        )
+                                    Schema.case
+                                        "text"
+                                        Schema.string
+                                        Choice2Of2
+                                        (function
+                                        | Choice2Of2 s -> ValueSome s
+                                        | _ -> ValueNone
+                                        )
+                                ]
+
+                        Expect.equal (Schema.toJson schema (Choice1Of2 7)) """{"kind":"number","payload":7}""" "the key"
+                        Expect.isTrue (roundTrips schema (Choice2Of2 "x")) "and reads back"
+                    }
+
+                    test "the description carries the shape and the honest payload" {
+                        match SchemaInfo.strip Source.schema.Info with
+                        | SUnion(name, shape, cases) ->
+                            Expect.equal name "Source" "the name"
+                            Expect.equal shape (UnionShape.InternalTag "type") "the shape"
+
+                            Expect.equal
+                                (cases |> List.map (fun (tag, p) -> tag, p.IsSome))
+                                [ "manual", false; "contractor_bill", true; "reversal", true; "imported", true ]
+                                "a unit case is None"
+                        | other -> failtestf "expected a union, got %A" other
                     }
                 ]
 

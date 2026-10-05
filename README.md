@@ -24,10 +24,10 @@ Config.load personSchema sources        // "age: expected an integer (from envir
 ```
 
 > **Status: pre-release.** All fifteen packages are built, and the fourteen with
-> code in them are tested — **957 tests**, run on both net8.0 and net10.0,
+> code in them are tested — **979 tests**, run on both net8.0 and net10.0,
 > including end-to-end tests that drive the generated client over real HTTP
 > against both a Giraffe server and a minimal-API one. Published to nuget.org as
-> `0.1.0-preview.16`; the API can still change, and a preview is where that should
+> `0.1.0-preview.17`; the API can still change, and a preview is where that should
 > happen.
 
 **New here?** [**Why Etymon**](docs/why-etymon.md) is the case for it: the same

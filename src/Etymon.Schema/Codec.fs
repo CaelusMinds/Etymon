@@ -77,6 +77,11 @@ type ObjectPart<'T, 'A> =
     }
 
 /// <summary>One case of a discriminated union.</summary>
+/// <remarks>
+/// A case knows the payload and nothing about where the payload sits: the
+/// union's <see cref="T:Etymon.UnionShape"/> decides that, so one case serves
+/// an adjacent tag and an internal tag alike.
+/// </remarks>
 [<NoEquality; NoComparison>]
 type CaseSchema<'T> =
     {
@@ -84,10 +89,13 @@ type CaseSchema<'T> =
         Tag: string
         /// The shape of the case's payload, if it has one.
         Payload: SchemaInfo option
-        /// Writes the payload when the value is this case, and reports whether it was.
-        TryWrite: Utf8JsonWriter -> string -> 'T -> bool
-        /// Reads a value of this case.
-        Read: DecodeMode -> Path -> JsonElement -> Validation<'T>
+        /// Whether a value is this case.
+        IsCase: 'T -> bool
+        /// Writes the payload alone, for a value that is this case. Writes
+        /// nothing for a case without a payload.
+        WritePayload: Utf8JsonWriter -> 'T -> unit
+        /// Reads a value of this case from the payload alone.
+        ReadPayload: DecodeMode -> Path -> JsonElement -> Validation<'T>
     }
 
 /// Shared machinery for reading JSON. Internal: consumers use the combinators in

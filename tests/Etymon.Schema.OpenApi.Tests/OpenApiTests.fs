@@ -340,6 +340,75 @@ let tests =
                         Expect.equal (at [ "properties"; "kind"; "const" ] first) (Some "\"circle\"") "tagged by const"
                     }
 
+                    test "an internally tagged case is the payload and the tag together" {
+                        let rendered = OpenApi.toJsonSchema Source.schema
+                        let def = (rendered["$defs"] :?> JsonObject)["Source"] :?> JsonObject
+                        let choices = def["oneOf"] :?> JsonArray
+                        Expect.equal choices.Count 4 "four cases"
+
+                        let manual = choices[0] :?> JsonObject
+                        Expect.equal (at [ "required" ] manual) (Some """["type"]""") "the tag alone"
+
+                        let bill = choices[1] :?> JsonObject
+                        let parts = bill["allOf"] :?> JsonArray
+                        Expect.equal parts.Count 2 "the payload and the tag"
+
+                        Expect.equal
+                            (at [ "$ref" ] (parts[0] :?> JsonObject))
+                            (Some "\"#/$defs/ContractorBill\"")
+                            "the payload by reference"
+
+                        Expect.equal
+                            (at [ "properties"; "type"; "const" ] (parts[1] :?> JsonObject))
+                            (Some "\"contractor_bill\"")
+                            "and the tag constant"
+
+                        Expect.isFalse (def.ContainsKey "discriminator") "JSON Schema has no discriminator"
+                    }
+
+                    test "the OpenAPI dialect adds a discriminator when every case has a component" {
+                        // Every case carries an object payload with a name, so
+                        // every tag value has a component to map to.
+                        let sourced =
+                            Schema.unionWith
+                                (UnionShape.InternalTag "type")
+                                "Sourced"
+                                [
+                                    Schema.case
+                                        "contractor_bill"
+                                        Source.billSchema
+                                        Choice1Of2
+                                        (function
+                                        | Choice1Of2 b -> ValueSome b
+                                        | _ -> ValueNone
+                                        )
+                                    Schema.case
+                                        "reversal"
+                                        Source.reversalSchema
+                                        Choice2Of2
+                                        (function
+                                        | Choice2Of2 id -> ValueSome id
+                                        | _ -> ValueNone
+                                        )
+                                ]
+
+                        let text = OpenApi.toComponentsText sourced
+                        Expect.stringContains text "\"discriminator\"" "present"
+                        Expect.stringContains text "\"propertyName\": \"type\"" "naming the tag"
+
+                        Expect.stringContains
+                            text
+                            "\"contractor_bill\": \"#/components/schemas/ContractorBill\""
+                            "mapping a value to a component"
+                    }
+
+                    test "a case with no component to map to means no discriminator" {
+                        // A mapping with a hole sends a generator to a schema
+                        // named after the tag value, which does not exist.
+                        let text = OpenApi.toComponentsText Source.schema
+                        Expect.isFalse (text.Contains "discriminator") "the manual case has no component"
+                    }
+
                     test "a payload-free case does not require a value" {
                         let rendered = OpenApi.toJsonSchema Shape.schema
                         let def = (rendered["$defs"] :?> JsonObject)["Shape"] :?> JsonObject

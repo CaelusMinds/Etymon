@@ -240,7 +240,11 @@ let tests =
 
                             Expect.equal
                                 tag.Type
-                                (FieldType.Choice("Outcome", [ "succeeded"; "failed"; "skipped" ]))
+                                (FieldType.Choice(
+                                    "Outcome",
+                                    [ "succeeded"; "failed"; "skipped" ],
+                                    Some "adjacent:kind:value"
+                                ))
                                 "holding the cases"
                         | other -> failtestf "expected one tag field, got %A" other
                     }
@@ -288,7 +292,10 @@ let tests =
                             "the union under the union's own name, the scalar and self cases under Union.tag, the pair under the object's name"
 
                         let pair = shapes |> List.find (fun s -> s.Name = "Expr.pair")
-                        let cases = FieldType.Choice("Expr", [ "literal"; "not"; "and" ])
+
+                        let cases =
+                            FieldType.Choice("Expr", [ "literal"; "not"; "and" ], Some "adjacent:kind:value")
+
                         Expect.equal (fieldNamed "left" pair).Type cases "a reference to the union is the union's cases"
 
                         let where = fieldNamed "where" (List.head shapes)

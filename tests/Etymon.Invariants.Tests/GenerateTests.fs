@@ -74,6 +74,56 @@ let tests =
                         Expect.isLessThan present 60 "and some are not, or the optionality is never exercised"
                     }
 
+                    test "an internally tagged union yields every case, and every sample reads back" {
+                        let bill =
+                            Schema.object "Bill" {
+                                let! number = Schema.required "number" Schema.string id
+                                return number
+                            }
+
+                        let schema =
+                            Schema.unionWith
+                                (UnionShape.InternalTag "type")
+                                "Source"
+                                [
+                                    Schema.caseUnit
+                                        "manual"
+                                        (Choice1Of2())
+                                        (function
+                                        | Choice1Of2() -> true
+                                        | _ -> false
+                                        )
+                                    Schema.case
+                                        "bill"
+                                        bill
+                                        Choice2Of2
+                                        (function
+                                        | Choice2Of2 n -> ValueSome n
+                                        | _ -> ValueNone
+                                        )
+                                ]
+
+                        let values = sample 40 (Generate.valid schema)
+
+                        Expect.isTrue
+                            (values
+                             |> List.exists (
+                                 function
+                                 | Choice1Of2() -> true
+                                 | _ -> false
+                             ))
+                            "manual"
+
+                        Expect.isTrue
+                            (values
+                             |> List.exists (
+                                 function
+                                 | Choice2Of2 _ -> true
+                                 | _ -> false
+                             ))
+                            "bill"
+                    }
+
                     test "a union yields every case" {
                         let schema =
                             Schema.union

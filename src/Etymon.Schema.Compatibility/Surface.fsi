@@ -39,8 +39,11 @@ namespace Etymon
         /// A nested object, by the name it is recorded under.
         | Nested of name: string
         
-        /// A tagged union, by name, with the case tags it admits.
-        | Choice of name: string * cases: string list
+        /// A tagged union, by name, with the case tags it admits and the wire shape
+        /// the union is written in, as text: "adjacent:kind:value" or
+        /// "internal:type". A snapshot older than format 4 never recorded the shape,
+        /// so None reads as not recorded and is never compared.
+        | Choice of name: string * cases: string list * encoding: string option
         
         /// Arbitrary JSON, whose shape this cannot reason about.
         | Unknown
@@ -138,6 +141,13 @@ namespace Etymon
     module Shape =
         
         val private scalarName: kind: PrimKind -> string
+        
+        /// The tag key of a union, whatever the union's shape.
+        val private tagOf: shape: UnionShape -> string
+        
+        /// A union's wire shape as the text the snapshot records, so a change of
+        /// shape is a change of what was written.
+        val private encodingOf: shape: UnionShape -> string
         
         /// <summary>What a described value looks like once stored.</summary>
         /// <remarks>
@@ -345,7 +355,7 @@ namespace Etymon
         /// The format version of the snapshot file itself, so that a future change
         /// to the format can be recognised rather than guessed at.
         [<Literal>]
-        val FormatVersion: int = 3
+        val FormatVersion: int = 4
         
         val private fieldTypeSchema: Schema<FieldType>
         

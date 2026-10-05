@@ -65,8 +65,8 @@ namespace Etymon
         
         val private emitUnion:
           name: string ->
-            tag: string ->
-            cases: (string * SchemaInfo) list ->
+            shape: UnionShape ->
+            cases: (string * SchemaInfo option) list ->
             builder: System.Text.StringBuilder -> unit
         
         /// <summary>
