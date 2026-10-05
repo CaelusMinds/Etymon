@@ -98,6 +98,19 @@ module Compatibility =
     let private constraintsDiffer (before: Constraint list) (after: Constraint list) = before <> after
 
     let private compareFields (event: string) (renames: Rename list) (before: Shape) (after: Shape) =
+        // A declaration whose old name the committed shape no longer carries
+        // is spent: the file already records the new name. Honoring a spent
+        // declaration would resolve the new field to nothing and hide every
+        // later change to the field for as long as the declaration stayed in
+        // the harness, so only a declaration the shape can still answer is
+        // read.
+        let renames =
+            renames
+            |> List.filter (fun r ->
+                String.Equals(r.Shape, event, StringComparison.Ordinal)
+                && (Shape.tryField r.From before).IsSome
+            )
+
         let removed =
             before.Fields
             |> List.collect (fun field ->
@@ -162,6 +175,35 @@ module Compatibility =
                 match beforeField with
                 | None -> []
                 | Some beforeField ->
+                    // A declared rename is a change, not a non-event. New code
+                    // reading what was already written looks for the new name
+                    // and finds the old one; already-deployed code reads the
+                    // old name and what is written now carries the new one.
+                    // Both break only when the field is required: an optional
+                    // field absent under either name reads as absent, as the
+                    // matrix already says of an optional field added or
+                    // removed.
+                    let renamed =
+                        if
+                            beforeField.Name <> afterField.Name
+                            && beforeField.Required
+                            && afterField.Required
+                        then
+                            [
+                                change
+                                    event
+                                    (Some afterField.Name)
+                                    $"'%s{beforeField.Name}' was renamed to '%s{afterField.Name}'"
+                                    [
+                                        Direction.Backward,
+                                        $"what was already written carries '%s{beforeField.Name}', and nothing reads '%s{afterField.Name}' from it."
+                                        Direction.Forward,
+                                        $"already-deployed code reads '%s{beforeField.Name}', and what is written now carries '%s{afterField.Name}'."
+                                    ]
+                            ]
+                        else
+                            []
+
                     // Two unions of the same name differing only in their cases
                     // are not a changed type: adding a case and removing one
                     // break opposite directions, and reporting "the type
@@ -188,7 +230,8 @@ module Compatibility =
                             | _ -> false
                         )
 
-                    [
+                    renamed
+                    @ [
                         if beforeField.Type <> afterField.Type && not sameUnionDifferentCases then
                             if widensByNull beforeField.Type afterField.Type then
                                 change
@@ -224,8 +267,10 @@ module Compatibility =
                                 (Some afterField.Name)
                                 $"'%s{afterField.Name}' stopped being required"
                                 [
+                                    // The old name where a rename is declared:
+                                    // deployed code knows no other.
                                     Direction.Forward,
-                                    $"already-deployed code requires '%s{afterField.Name}' and what is written now may omit it."
+                                    $"already-deployed code requires '%s{beforeField.Name}' and what is written now may omit it."
                                 ]
 
                         if not beforeField.Required && afterField.Required then
@@ -234,7 +279,7 @@ module Compatibility =
                                 (Some afterField.Name)
                                 $"'%s{afterField.Name}' became required"
                                 [
-                                    Direction.Backward, $"what was already written may omit '%s{afterField.Name}'."
+                                    Direction.Backward, $"what was already written may omit '%s{beforeField.Name}'."
                                 ]
 
                         if constraintsDiffer beforeField.Constraints afterField.Constraints then
@@ -333,17 +378,33 @@ module Compatibility =
     /// Compatibility.between [] committedSnapshot currentSnapshot
     /// </code></example>
     let between (renames: Rename list) (before: ShapeSnapshot) (after: ShapeSnapshot) =
-        ShapeSnapshot.names after
+        // The union of both snapshots' names. Visiting only the names present
+        // after the change is how a removed shape produced no verdict at all.
+        ShapeSnapshot.names before @ ShapeSnapshot.names after
+        |> List.distinct
+        |> List.sort
         |> List.collect (fun name ->
             match ShapeSnapshot.tryLatest name before, ShapeSnapshot.tryLatest name after with
-            | Some previous, Some current when previous.Version <> current.Version ->
-                betweenShapes renames previous current
             | Some previous, Some current -> betweenShapes renames previous current
             | None, _ ->
-                // A new event type breaks nothing: no code reads it and no
-                // events carry it.
+                // A new shape breaks nothing: no code reads it and nothing
+                // carries it yet.
                 []
-            | _, None -> []
+            | Some _, None ->
+                // The shape is in the committed snapshot and gone from the
+                // code. What was already written under the name has nothing
+                // reading it, and already-deployed code reading the name gets
+                // nothing. Which of the two matters is the policy's call.
+                [
+                    change
+                        name
+                        None
+                        $"the shape '%s{name}' was removed"
+                        [
+                            Direction.Backward, $"what was already written as '%s{name}' has nothing reading it now."
+                            Direction.Forward, $"already-deployed code reads '%s{name}', and nothing writes it now."
+                        ]
+                ]
         )
 
     /// <summary>Only the changes that break a given direction.</summary>

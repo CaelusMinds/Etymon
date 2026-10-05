@@ -142,6 +142,19 @@ compiler. And the file is only written for one target framework, so dropping tha
 framework from the build is `ETY0004`, a build error — otherwise the committed
 copy would go stale and the check would keep passing on stale content.
 
+## The snapshot must not lag
+
+A compatibility harness compares the committed snapshot file with the shapes the
+codecs declare today, and the matrix is right that an optional field breaks
+neither direction. A file comes to lag exactly so: nothing demanded the file be
+regenerated, and the next change was measured against a file that did not
+describe the bytes. `Events.check`, `Wire.unresolvedRequests` and
+`Wire.unresolvedResponses` report every current shape the committed snapshot
+does not record as the shape is now, and `ShapeSnapshot.extend` is the only
+regeneration that keeps the versions the code stopped declaring. Enforced by
+`tests/Etymon.Schema.Compatibility.Tests/UnrecordedTests.fs`; designed in
+[the snapshot must not lag](design/compatibility-unrecorded-2026-10-05.md).
+
 ## Open
 
 | Question | State |
