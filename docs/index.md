@@ -26,6 +26,10 @@ dotnet run --project samples/Etymon.Sample.Derivations
 
 Then the [guides](guides.html), and the reference below.
 
+The [review of 2026-10-05](review-2026-10-05.html) judges every package against
+the nearest alternative and the four consumers, ranks thirty-four actions, and
+lists the rulings only the owner can make.
+
 ## The packages
 
 | Package | What it owns |
