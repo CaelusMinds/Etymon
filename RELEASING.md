@@ -29,9 +29,15 @@ that expires in an hour. Nothing to store, nothing to rotate, nothing to leak.
 
    This is the only stored value, and it is not a credential. Add required
    reviewers on the `nuget` environment if a push should need sign-off.
-3. **Reserve the prefix.** After the first push, email `account@nuget.org` with
-   the owner display name and the prefixes `Etymon` and `Etymon.*`. Until it is
-   reserved, anyone can publish `Etymon.Something` and it will look official.
+3. **The prefix.** The `Etymon.*` id space on nuget.org is shared with another
+   publisher (EtymonTechnologies), so the `Etymon` prefix cannot be reserved
+   and every CaelusMinds `Etymon.*` package shows as unverified. The suite's
+   target name is Atynom (issue #36), and nuget.org reserved the `Atynom`
+   prefix for the CaelusMinds account on 2026-10-05. Before the first publish
+   under an `Atynom.*` id, the Trusted Publishing policy from step 1 needs a
+   package pattern that allows `Atynom*`, beside or instead of `Etymon*`; a
+   reservation says who may own the name, and the policy pattern says what the
+   workflow may publish.
 
 A policy on a private repository starts *temporarily active* for seven days
 until a first publish locks it to the repository and owner IDs. This repository
