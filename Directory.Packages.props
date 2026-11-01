@@ -18,14 +18,14 @@
        framework for both net8.0 and net10.0, so Etymon.Schema takes it as
        an in-box API rather than a NuGet dependency. -->
   <ItemGroup>
-    <PackageVersion Include="FsCheck" Version="3.4.0" />
+    <PackageVersion Include="FsCheck" Version="3.6.0" />
     <PackageVersion Include="Giraffe" Version="8.3.0" />
   </ItemGroup>
 
   <!-- Test-only. Never referenced by a shipping package. -->
   <ItemGroup>
-    <PackageVersion Include="Expecto" Version="11.1.0" />
-    <PackageVersion Include="Expecto.FsCheck" Version="11.1.0" />
+    <PackageVersion Include="Expecto" Version="11.1.1" />
+    <PackageVersion Include="Expecto.FsCheck" Version="11.1.1" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
